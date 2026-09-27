@@ -317,16 +317,32 @@ local runtime = Runtime.new({
 })
 runtime:startServer()
 runtime:run(0.5)
-local isaac = runtime:addPlayer("Isaac", 1001, true)
+local player1 = runtime:addPlayer("Player1", 1001, true)
 runtime:run(1)
-local bot = makeBot(runtime, isaac)
+local bot = makeBot(runtime, player1)
 local gui = bot.gui()
+
+-- NPCs should be real Roblox R15 characters (from HumanoidDescription), not the Part fallback.
+local function isRobloxCharacter(model)
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil
+		and humanoid.RigType == Enum.HumanoidRigType.R15
+		and model:FindFirstChild("UpperTorso") ~= nil
+		and model:FindFirstChild("RightHand") ~= nil
+		and model.Head:FindFirstChild("face") ~= nil
+		and model:FindFirstChildWhichIsA("LuaSourceContainer", true) == nil
+end
 
 section("Tutorial: a brand-new player's first minute")
 local store = bot.store()
 check(store ~= nil and #store.Shelves == 2, "player got a starter shop with 2 shelves")
-check(store.Model.Sign:FindFirstChildOfClass("SurfaceGui").OwnerName.Text == "ISAAC'S STORE", "sign reads ISAAC'S STORE")
+local signText = store.Model.Sign:FindFirstChildOfClass("SurfaceGui").ShopName.Text
+check(signText == "CORNER SHOP", "sign shows the shop name, not the player's name (" .. signText .. ")")
+local marker = store.Model.Sign:FindFirstChild("YourShopMarker")
+check(marker ~= nil and marker.Enabled and marker:FindFirstChildOfClass("TextLabel").Text == "⭐ YOUR SHOP", "floating ⭐ YOUR SHOP marker shown to the owner")
 check(gui.Cash.Amount.Text == "£25", "HUD shows starting cash £25")
+local cashier = store.Model:FindFirstChild("Cashier")
+check(isRobloxCharacter(cashier) and cashier.HumanoidRootPart.Anchored, "cashier is a Roblox R15 character standing at the till")
 check(gui.Tutorial.Visible and string.find(gui.Tutorial:FindFirstChild("TextLabel", true).Text or "", "STEP") ~= nil, "tutorial card is showing")
 local function tutorialStep()
 	local t = bot.data().Tutorial
@@ -349,8 +365,20 @@ check(times[2] ~= nil and times[2] < 20, "picked up the first box within 20s")
 check(times[3] ~= nil and times[3] < 35, "unpacked a box straight onto a shelf within 35s")
 check(times[4] ~= nil and times[4] < 60, "first customer purchase within the first minute")
 check(bot.lastPromptText == "Unpack Here", "shelf prompt says 'Unpack Here' while carrying (" .. tostring(bot.lastPromptText) .. ")")
+local customersFolder = store.Model:FindFirstChild("Customers")
+local customerModels = if customersFolder then customersFolder:GetChildren() else {}
+local allRoblox = #customerModels > 0
+for _, model in customerModels do
+	if not isRobloxCharacter(model) or model:FindFirstChild("Basket") == nil then
+		allRoblox = false
+	end
+end
+check(allRoblox, "customers are Roblox R15 characters carrying baskets (" .. #customerModels .. " in the shop)")
 check(bot.data().Cash >= startCash + 25 + 50 + 75, "tutorial step rewards paid (cash £" .. bot.data().Cash .. ")")
-runtime:run(0.3)
+-- (The pointer appears once the step-complete celebration has finished.)
+runtime:runUntil(3, function()
+	return gui.TutorialPointer.Visible
+end)
 check(gui.TutorialPointer.Visible, "step 4 points at the UPGRADE button")
 local upgrade = bot.affordableUpgrade()
 check(upgrade ~= nil, "can afford an upgrade for the last tutorial step")
@@ -390,7 +418,7 @@ local leaderboardsModule = runtime:serverModule(runtime.game.ServerScriptService
 local snapshot = leaderboardsModule.snapshot()
 check(snapshot.Global == true, "global leaderboards use OrderedDataStores")
 local topValue = snapshot.Boards[1].Entries[1]
-check(topValue ~= nil and topValue.UserId == 1001, "Isaac tops the store value board")
+check(topValue ~= nil and topValue.UserId == 1001, "Player1 tops the store value board")
 local sign = runtime.workspace.World:FindFirstChild("Leaderboard")
 local firstRow = sign and sign.Board.BoardFront:FindFirstChild("Row1", true)
 check(firstRow ~= nil and firstRow:FindFirstChild("TextLabel") ~= nil, "leaderboard sign built in the street")
@@ -400,8 +428,8 @@ for _, child in firstRow:GetChildren() do
 		table.insert(rowText, child.Text)
 	end
 end
-check(table.find(rowText, "Isaac") ~= nil, "sign shows Isaac (" .. table.concat(rowText, " | ") .. ")")
-check(isaac.leaderstats.Value.Value > 0 and isaac.leaderstats.Sold.Value > 0, "player list stats (Value/Cash/Sold) update")
+check(table.find(rowText, "Player1") ~= nil, "sign shows Player1 (" .. table.concat(rowText, " | ") .. ")")
+check(player1.leaderstats.Value.Value > 0 and player1.leaderstats.Sold.Value > 0, "player list stats (Value/Cash/Sold) update")
 runtime:click(gui.Leaders)
 runtime:run(1)
 local leaderWindow = bot.window("LEADERBOARD")
@@ -419,7 +447,7 @@ cashBefore = bot.data().Cash
 bot.shopBuy("Cash", "CashSmall")
 check(bot.data().Cash >= cashBefore + 1500, string.format("Pocket Money pack adds cash (£%d → £%d)", cashBefore, bot.data().Cash))
 bot.shopBuy("Boosts", "CustomerRush")
-check(Perks.boostActive(isaac, "CustomerRush"), "Customer Rush boost is active")
+check(Perks.boostActive(player1, "CustomerRush"), "Customer Rush boost is active")
 runtime:run(0.5)
 check(gui.Boosts:FindFirstChild("CustomerRush") ~= nil, "boost timer chip shows in the HUD")
 local boxesBefore = #bot.boxesOnPad()
@@ -447,7 +475,7 @@ for _, box in bot.boxesOnPad() do
 end
 check(goldenOnPad, "Golden Crate lands on the loading bay")
 bot.shopBuy("Passes", "DoubleCash")
-check(Perks.has(isaac, "DoubleCash"), "2x Cash pass granted")
+check(Perks.has(player1, "DoubleCash"), "2x Cash pass granted")
 local saleSeen = false
 local earnedBefore = bot.data().TotalEarned
 for _ = 1, 60 do
@@ -484,14 +512,14 @@ check(table.find(bot.data().Receipts, receipt.Receipt.PurchaseId) ~= nil, "recei
 local workersBefore = #bot.store().Workers
 bot.shopBuy("Passes", "VIP")
 runtime:run(1)
-check(Perks.has(isaac, "VIP"), "VIP pass granted through PromptGamePassPurchaseFinished")
+check(Perks.has(player1, "VIP"), "VIP pass granted through PromptGamePassPurchaseFinished")
 check(#bot.store().Workers == workersBefore + 1, "VIP adds a free worker")
-check(isaac.Character.Head:FindFirstChild("VipTag") ~= nil, "VIP tag over the player's head")
+check(player1.Character.Head:FindFirstChild("VipTag") ~= nil, "VIP tag over the player's head")
 bot.closeWindows()
 reportErrors("shop real purchases")
 
 section("Store expansion, workers and capacity")
-PlayerData.addCash(isaac, 300000)
+PlayerData.addCash(player1, 300000)
 runtime:run(0.5)
 local itemsBefore = 0
 for _, keys in Shelves.serialize(bot.store()) do
@@ -510,28 +538,38 @@ check(itemsAfter >= itemsBefore - 12, string.format("shelf stock kept through re
 check(bot.buyUpgrade("Workers"), "hired a worker")
 bot.closeWindows()
 for _ = 1, 3 do
-	PlayerData.addItem(isaac, "Cola", 30)
+	PlayerData.addItem(player1, "Cola", 30)
 end
 local stockBeforeWorker = bot.stock()
 runtime:run(40)
 check(bot.stock() < stockBeforeWorker, string.format("workers move stock onto shelves (%d -> %d)", stockBeforeWorker, bot.stock()))
+local workerModels = bot.store().Model.Workers:GetChildren()
+local workersOk = #workerModels > 0
+for _, model in workerModels do
+	if not isRobloxCharacter(model) or model.Head:FindFirstChild("NameTag") == nil then
+		workersOk = false
+	end
+end
+check(workersOk, "workers are Roblox R15 characters with a STAFF tag")
+check(runtime.charactersCreated <= 13, "each NPC look is made once and cloned (" .. runtime.charactersCreated .. " made)")
 reportErrors("expansion")
 
-section("Second player: separate plot, can't touch Isaac's stuff")
-local bob = runtime:addPlayer("Bob", 2002, false)
+section("Second player: separate plot, can't touch Player1's stuff")
+local player2 = runtime:addPlayer("Player2", 2002, false)
 runtime:run(12)
-local bobBot = makeBot(runtime, bob)
-check(bobBot.session() ~= nil and bobBot.session().PlotIndex ~= bot.session().PlotIndex, "Bob gets his own plot")
-check(#bobBot.boxesOnPad() > 0, "Bob gets his own delivery")
-local bobBox = bobBot.boxesOnPad()[1]
-check(bobBox.BoxPrompt.Enabled == false, "Isaac's client hides Bob's box prompts")
-Instances.fire(bobBox.BoxPrompt, "Triggered", isaac)
+local player2Bot = makeBot(runtime, player2)
+check(player2Bot.session() ~= nil and player2Bot.session().PlotIndex ~= bot.session().PlotIndex, "Player2 gets their own plot")
+check(#player2Bot.boxesOnPad() > 0, "Player2 gets their own delivery")
+local player2Box = player2Bot.boxesOnPad()[1]
+check(player2Box.BoxPrompt.Enabled == false, "Player1's client hides Player2's box prompts")
+check(not player2Bot.store().Model.Sign.YourShopMarker.Enabled, "Player2's YOUR SHOP marker is hidden on Player1's screen")
+Instances.fire(player2Box.BoxPrompt, "Triggered", player1)
 runtime:run(0.5)
-check(not bot.carrying() and bobBox:FindFirstChild("BoxPrompt") ~= nil, "server rejects Isaac picking up Bob's box")
-local bobShelf = bobBot.store().Shelves[1]
-Instances.fire(bobShelf.Model.Base.PromptAttachment.StockPrompt, "Triggered", isaac)
+check(not bot.carrying() and player2Box:FindFirstChild("BoxPrompt") ~= nil, "server rejects Player1 picking up Player2's box")
+local player2Shelf = player2Bot.store().Shelves[1]
+Instances.fire(player2Shelf.Model.Base.PromptAttachment.StockPrompt, "Triggered", player1)
 runtime:run(1)
-check(Shelves.count(bobShelf) == 0, "server rejects Isaac stocking Bob's shelf")
+check(Shelves.count(player2Shelf) == 0, "server rejects Player1 stocking Player2's shelf")
 reportErrors("multiplayer")
 
 section("Saving and loading")
@@ -542,7 +580,7 @@ for _, keys in Shelves.serialize(bot.store()) do
 	savedShelfItems += #keys
 end
 local savedStock = bot.stock()
-runtime:removePlayer(isaac)
+runtime:removePlayer(player1)
 runtime:run(2)
 check(dataStores["FillTheStore_PlayerData_v1"]["Player_1001"] ~= nil, "data saved to the DataStore on leave")
 check(runtime:shutdown(), "BindToClose finished saving")
@@ -562,9 +600,9 @@ for _, context in { "server", "client" } do
 	local Monetization = runtime2:require(context, runtime2.game.ReplicatedStorage.Shared.Monetization)
 	Monetization.Passes.VIP.Id = 2222
 end
-local isaac2 = runtime2:addPlayer("Isaac", 1001, true)
+local player1Again = runtime2:addPlayer("Player1", 1001, true)
 runtime2:run(2)
-local bot2 = makeBot(runtime2, isaac2)
+local bot2 = makeBot(runtime2, player1Again)
 local Shelves2 = runtime2:serverModule(runtime2.game.ServerScriptService.Server.Services.Shelves)
 local Perks2 = runtime2:serverModule(runtime2.game.ServerScriptService.Server.Services.Perks)
 local loadedItems = 0
@@ -580,15 +618,16 @@ check(upgradesMatch, "upgrades restored")
 check(bot2.data().Tutorial.Done, "tutorial stays finished")
 check(bot2.store().Level == 3 and #bot2.store().Shelves == 10, "store level restored")
 check(loadedItems + bot2.stock() >= savedShelfItems + savedStock - 5, "shelf stock + inventory restored")
-check(Perks2.has(isaac2, "VIP"), "owned game pass detected on rejoin (UserOwnsGamePassAsync)")
-check(Perks2.boostActive(isaac2, "CustomerRush"), "Customer Rush boost keeps running across sessions")
+check(Perks2.has(player1Again, "VIP"), "owned game pass detected on rejoin (UserOwnsGamePassAsync)")
+check(Perks2.boostActive(player1Again, "CustomerRush"), "Customer Rush boost keeps running across sessions")
 check(not bot2.gui().Tutorial.Visible, "no tutorial for returning players")
 runtime2:run(20)
 reportErrors("load")
 runtime2:shutdown()
 
 section("Studio without API access")
-local runtime3 = Runtime.new({ placePath = PLACE, placeId = 4242, dataStoreMode = "denied" })
+-- (Character assets failing too, to check the NPC fallback.)
+local runtime3 = Runtime.new({ placePath = PLACE, placeId = 4242, dataStoreMode = "denied", characterAssets = "fail" })
 runtime3:startServer()
 runtime3:run(0.5)
 local tester = runtime3:addPlayer("Tester", 3003, true)
@@ -602,6 +641,14 @@ for _, message in runtime3.warnings do
 	end
 end
 check(warnedOnce == 1, "prints a single clear 'not saved' warning (" .. warnedOnce .. ")")
+local characterWarnings = 0
+for _, message in runtime3.warnings do
+	if string.find(message, "Couldn't create Roblox characters", 1, true) then
+		characterWarnings += 1
+	end
+end
+local fallbackCashier = bot3.store().Model:FindFirstChild("Cashier")
+check(fallbackCashier ~= nil and fallbackCashier:FindFirstChild("Torso") ~= nil and characterWarnings == 1, "if Roblox can't make characters, simple NPCs are used (1 warning)")
 local lb = runtime3:serverModule(runtime3.game.ServerScriptService.Server.Services.Leaderboards).snapshot()
 check(lb.Global == false and #lb.Boards[1].Entries == 1, "leaderboards fall back to this server")
 check(bot3.data().Tutorial.Step == 1 and bot3.gui().Tutorial.Visible, "new player sees the tutorial")

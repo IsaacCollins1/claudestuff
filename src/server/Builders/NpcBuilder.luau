@@ -1,30 +1,42 @@
 --!strict
--- Blocky R6 characters built from Parts for customers, workers and the cashier.
--- Uses Roblox's own public R6 walk/idle animations so NPCs animate properly.
+-- NPC characters: customers, workers and the cashier.
+--
+-- They are standard Roblox R15 characters, made by Roblox itself with
+-- Players:CreateHumanoidModelFromDescription (default body and face, with
+-- shirt/trouser/skin colours) and animated with Roblox's default R15 walk and
+-- idle animations. Each look is made once and then cloned.
+--
+-- If Roblox can't make them (e.g. character assets fail to load), simple
+-- Part-built R6 characters are used instead so the shop never stops.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Build = require(ReplicatedStorage.Shared.Build)
 
 local NpcBuilder = {}
 
-NpcBuilder.WalkAnimation = "rbxassetid://180426354" -- Roblox R6 walk
-NpcBuilder.IdleAnimation = "rbxassetid://180435571" -- Roblox R6 idle
+-- Roblox's own public default animations. `Pace` is the walk speed each walk cycle is made for.
+NpcBuilder.Animations = {
+	R15 = { Walk = "rbxassetid://507777826", Idle = "rbxassetid://507766666", Pace = 16 },
+	R6 = { Walk = "rbxassetid://180426354", Idle = "rbxassetid://180435571", Pace = 14 },
+}
 
 export type Style = {
+	Id: string, -- which look ("Staff", "Crowd3", ...); each gets one Roblox character
 	Shirt: Color3,
 	Pants: Color3,
 	Skin: Color3,
-	Hat: Color3?,
-	Hair: Color3?,
 }
 
 export type Npc = {
 	Model: Model,
 	Humanoid: Humanoid,
 	Root: BasePart,
-	RightArm: BasePart,
 	Head: BasePart,
+	Hand: BasePart, -- right hand (R15) or right arm (R6 fallback)
+	HandGrip: CFrame, -- where a carried basket sits, relative to Hand
+	RootHeight: number, -- height of the root part's centre above the feet
 }
 
 local SHIRTS = {
@@ -52,28 +64,134 @@ local SKINS = {
 	Color3.fromRGB(100, 70, 50),
 	Color3.fromRGB(255, 205, 160),
 }
-local HAIRS = {
-	Color3.fromRGB(60, 40, 30),
-	Color3.fromRGB(20, 20, 25),
-	Color3.fromRGB(230, 190, 90),
-	Color3.fromRGB(170, 70, 40),
-}
 
-local function pick<T>(rng: Random, list: { T }): T
-	return list[rng:NextInteger(1, #list)]
+-- Shop staff (workers and the cashier) wear green.
+NpcBuilder.StaffStyle = {
+	Id = "Staff",
+	Shirt = Color3.fromRGB(60, 190, 90),
+	Pants = Color3.fromRGB(40, 44, 60),
+	Skin = Color3.fromRGB(240, 190, 145),
+} :: Style
+
+-- A fixed crowd of customer looks (a new Roblox character is made for each).
+local CROWD: { Style } = {}
+do
+	local rng = Random.new(2024)
+	for index = 1, 12 do
+		table.insert(CROWD, {
+			Id = "Crowd" .. index,
+			Shirt = SHIRTS[(index - 1) % #SHIRTS + 1],
+			Pants = PANTS[rng:NextInteger(1, #PANTS)],
+			Skin = SKINS[rng:NextInteger(1, #SKINS)],
+		})
+	end
 end
 
 function NpcBuilder.randomStyle(rng: Random): Style
+	return CROWD[rng:NextInteger(1, #CROWD)]
+end
+
+-- Roblox characters ------------------------------------------------------------------
+
+local templates: { [string]: Model } = {}
+local robloxRefused = false -- stop asking after the first failure
+
+local function describe(style: Style): HumanoidDescription
+	local description = Instance.new("HumanoidDescription")
+	description.HeadColor = style.Skin
+	description.LeftArmColor = style.Skin
+	description.RightArmColor = style.Skin
+	description.TorsoColor = style.Shirt
+	description.LeftLegColor = style.Pants
+	description.RightLegColor = style.Pants
+	return description
+end
+
+local function makeTemplate(style: Style): Model?
+	if robloxRefused then
+		return nil
+	end
+	local ok, result = pcall(function(): Model
+		return Players:CreateHumanoidModelFromDescription(describe(style), Enum.HumanoidRigType.R15)
+	end)
+	local model = if ok then result else nil
+	local humanoid = model and model:FindFirstChildOfClass("Humanoid")
+	local root = model and model:FindFirstChild("HumanoidRootPart")
+	if not model or not humanoid or not root or not root:IsA("BasePart") or not model:FindFirstChild("RightHand") then
+		robloxRefused = true
+		warn("[FillTheStore] Couldn't create Roblox characters for NPCs, using simple ones instead: " .. tostring(if ok then "incomplete character" else result))
+		if model then
+			model:Destroy()
+		end
+		return nil
+	end
+	-- NPCs are driven by the server, so drop any scripts a character comes with.
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("LuaSourceContainer") then
+			descendant:Destroy()
+		end
+	end
+	model.Name = "NPC"
+	model.PrimaryPart = root
+	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+	humanoid.BreakJointsOnDeath = false
+	humanoid.RequiresNeck = false
+	if not humanoid:FindFirstChildOfClass("Animator") then
+		Instance.new("Animator").Parent = humanoid
+	end
+	templates[style.Id] = model
+	return model
+end
+
+-- Make the characters up front: the staff look right away (the first shop's
+-- cashier needs it), the customer crowd in the background.
+function NpcBuilder.preload()
+	makeTemplate(NpcBuilder.StaffStyle)
+	task.spawn(function()
+		for _, style in CROWD do
+			if robloxRefused then
+				break
+			end
+			makeTemplate(style)
+		end
+	end)
+end
+
+local function prepareHumanoid(humanoid: Humanoid, walkSpeed: number)
+	humanoid.WalkSpeed = walkSpeed
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+end
+
+-- A clone of the Roblox character for `style`, standing at `cframe`.
+local function fromTemplate(cframe: CFrame, style: Style): Npc?
+	local template = templates[style.Id]
+	if not template then
+		return nil
+	end
+	local model = template:Clone()
+	local humanoid = model:FindFirstChildOfClass("Humanoid") :: Humanoid
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart
+	model.PrimaryPart = root
+	local rootHeight = humanoid.HipHeight + root.Size.Y / 2
+	model:PivotTo(cframe * CFrame.new(0, rootHeight, 0))
 	return {
-		Shirt = pick(rng, SHIRTS),
-		Pants = pick(rng, PANTS),
-		Skin = pick(rng, SKINS),
-		Hat = if rng:NextNumber() < 0.35 then pick(rng, SHIRTS) else nil,
-		Hair = if rng:NextNumber() < 0.6 then pick(rng, HAIRS) else nil,
+		Model = model,
+		Humanoid = humanoid,
+		Root = root,
+		Head = model:FindFirstChild("Head") :: BasePart,
+		Hand = model:FindFirstChild("RightHand") :: BasePart,
+		HandGrip = CFrame.new(0, -0.45, -0.35),
+		RootHeight = rootHeight,
 	}
 end
 
--- R6 joint layout (the standard Roblox values).
+-- Fallback: simple R6 characters built from Parts ------------------------------------
+
 local R = CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0)
 local RIGHT = CFrame.new(0, 0, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0)
 local LEFT = CFrame.new(0, 0, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
@@ -124,17 +242,6 @@ local function buildRig(cframe: CFrame, style: Style, withHumanoid: boolean): (M
 	limb("Right Leg", Vector3.new(1, 2, 1), Vector3.new(0.5, -2, 0), style.Pants)
 	limb("Left Leg", Vector3.new(1, 2, 1), Vector3.new(-0.5, -2, 0), style.Pants)
 
-	-- Short sleeves in the shirt colour.
-	for _, armName in { "Right Arm", "Left Arm" } do
-		local arm = parts[armName]
-		local sleeve = Build.part(model, "Sleeve", Vector3.new(1.05, 0.8, 1.05), arm.CFrame * CFrame.new(0, 0.6, 0), style.Shirt)
-		if withHumanoid then
-			attach(sleeve, arm)
-		else
-			Build.decor(sleeve)
-		end
-	end
-
 	local mesh = Instance.new("SpecialMesh")
 	mesh.MeshType = Enum.MeshType.Head
 	mesh.Scale = Vector3.new(1.25, 1.25, 1.25)
@@ -145,26 +252,6 @@ local function buildRig(cframe: CFrame, style: Style, withHumanoid: boolean): (M
 	face.Texture = "rbxasset://textures/face.png"
 	face.Face = Enum.NormalId.Front
 	face.Parent = head
-
-	if style.Hair then
-		local hair = Build.part(model, "Hair", Vector3.new(2.1, 0.5, 1.15), head.CFrame * CFrame.new(0, 0.55, 0.05), style.Hair)
-		if withHumanoid then
-			attach(hair, head)
-		else
-			Build.decor(hair)
-		end
-	end
-	if style.Hat then
-		local crown = Build.cylinder(model, "Cap", 0.6, 1.35, head.CFrame * CFrame.new(0, 0.75, 0), style.Hat)
-		local brim = Build.part(model, "Brim", Vector3.new(1.2, 0.12, 0.8), head.CFrame * CFrame.new(0, 0.5, -0.75), style.Hat)
-		for _, part in { crown, brim } do
-			if withHumanoid then
-				attach(part, head)
-			else
-				Build.decor(part)
-			end
-		end
-	end
 
 	if withHumanoid then
 		local rootJoint = Instance.new("Motor6D")
@@ -189,36 +276,54 @@ local function buildRig(cframe: CFrame, style: Style, withHumanoid: boolean): (M
 	return model, parts
 end
 
--- A walking NPC with a Humanoid. Parent it to the workspace, then call `NpcBuilder.animate`.
-function NpcBuilder.build(cframe: CFrame, style: Style, walkSpeed: number): Npc
+local function buildFallback(cframe: CFrame, style: Style): Npc
 	local model, parts = buildRig(cframe, style, true)
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	humanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
-	humanoid.WalkSpeed = walkSpeed
 	humanoid.BreakJointsOnDeath = false
 	humanoid.RequiresNeck = false
-	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
-	humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing, false)
-	humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-	humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
 	local animator = Instance.new("Animator")
 	animator.Parent = humanoid
 	humanoid.Parent = model
-
 	return {
 		Model = model,
 		Humanoid = humanoid,
 		Root = parts.HumanoidRootPart,
-		RightArm = parts["Right Arm"],
 		Head = parts.Head,
+		Hand = parts["Right Arm"],
+		HandGrip = CFrame.new(0, -1.25, -0.35),
+		RootHeight = 3,
 	}
 end
 
--- Decorative, anchored character (e.g. the cashier).
+-- Public API ---------------------------------------------------------------------------
+
+-- A walking NPC with a Humanoid, feet on the ground at `cframe`.
+-- Parent it to the workspace, then call `NpcBuilder.animate`.
+function NpcBuilder.build(cframe: CFrame, style: Style, walkSpeed: number): Npc
+	local npc = fromTemplate(cframe, style) or buildFallback(cframe, style)
+	prepareHumanoid(npc.Humanoid, walkSpeed)
+	return npc
+end
+
+-- A character that stands still behind the counter (the cashier).
+-- Call `NpcBuilder.playIdle` once it's in the workspace.
 function NpcBuilder.buildStatic(cframe: CFrame, style: Style): Model
+	local npc = fromTemplate(cframe, style)
+	if npc then
+		for _, part in npc.Model:GetDescendants() do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+				part.CanQuery = false
+				part.CanTouch = false
+			end
+		end
+		-- Only the root is anchored, so the idle animation can still move the body.
+		npc.Root.Anchored = true
+		return npc.Model
+	end
 	local model, parts = buildRig(cframe, style, false)
 	parts.HumanoidRootPart:Destroy()
 	model.PrimaryPart = parts.Torso
@@ -233,23 +338,45 @@ function NpcBuilder.buildStatic(cframe: CFrame, style: Style): Model
 	return model
 end
 
+local function loadTracks(humanoid: Humanoid): (AnimationTrack?, AnimationTrack?)
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		return nil, nil
+	end
+	local ids = if humanoid.RigType == Enum.HumanoidRigType.R15 then NpcBuilder.Animations.R15 else NpcBuilder.Animations.R6
+	local ok, walk, idle = pcall(function()
+		local walkAnimation = Instance.new("Animation")
+		walkAnimation.AnimationId = ids.Walk
+		local idleAnimation = Instance.new("Animation")
+		idleAnimation.AnimationId = ids.Idle
+		return animator:LoadAnimation(walkAnimation), animator:LoadAnimation(idleAnimation)
+	end)
+	if not ok then
+		return nil, nil
+	end
+	return walk, idle
+end
+
+-- Idle animation for a standing character (no-op for the simple Part version).
+function NpcBuilder.playIdle(model: Model)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	local _, idle = loadTracks(humanoid)
+	if idle then
+		idle.Looped = true
+		idle:Play()
+	end
+end
+
 -- Plays walk/idle animations based on movement. Call after parenting to the workspace.
 function NpcBuilder.animate(npc: Npc)
-	local animator = npc.Humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
+	local walkTrack, idleTrack = loadTracks(npc.Humanoid)
+	if not walkTrack or not idleTrack then
 		return
 	end
-	local ok, tracks = pcall(function()
-		local walk = Instance.new("Animation")
-		walk.AnimationId = NpcBuilder.WalkAnimation
-		local idle = Instance.new("Animation")
-		idle.AnimationId = NpcBuilder.IdleAnimation
-		return { animator:LoadAnimation(walk), animator:LoadAnimation(idle) }
-	end)
-	if not ok or not tracks then
-		return
-	end
-	local walkTrack, idleTrack = tracks[1], tracks[2]
+	local pace = if npc.Humanoid.RigType == Enum.HumanoidRigType.R15 then NpcBuilder.Animations.R15.Pace else NpcBuilder.Animations.R6.Pace
 	walkTrack.Looped = true
 	idleTrack.Looped = true
 	idleTrack:Play()
@@ -260,7 +387,7 @@ function NpcBuilder.animate(npc: Npc)
 			walking = nowWalking
 			if walking then
 				walkTrack:Play(0.15)
-				walkTrack:AdjustSpeed(npc.Humanoid.WalkSpeed / 14)
+				walkTrack:AdjustSpeed(npc.Humanoid.WalkSpeed / pace)
 				idleTrack:Stop(0.15)
 			else
 				walkTrack:Stop(0.15)
@@ -272,10 +399,10 @@ end
 
 -- Basket carried in the NPC's right hand; products bought get welded into it.
 function NpcBuilder.addBasket(npc: Npc, color: Color3): BasePart
-	local arm = npc.RightArm
-	local basketCFrame = arm.CFrame * CFrame.new(0, -1.25, -0.35)
+	local hand = npc.Hand
+	local basketCFrame = hand.CFrame * npc.HandGrip
 	local basket = Build.part(npc.Model, "Basket", Vector3.new(1.3, 0.12, 1), basketCFrame * CFrame.new(0, -0.3, 0), color)
-	attach(basket, arm)
+	attach(basket, hand)
 	local walls: { { Size: Vector3, Offset: CFrame } } = {
 		{ Size = Vector3.new(1.3, 0.55, 0.08), Offset = CFrame.new(0, 0, -0.46) },
 		{ Size = Vector3.new(1.3, 0.55, 0.08), Offset = CFrame.new(0, 0, 0.46) },
@@ -284,10 +411,10 @@ function NpcBuilder.addBasket(npc: Npc, color: Color3): BasePart
 	}
 	for _, wall in walls do
 		local part = Build.part(npc.Model, "BasketSide", wall.Size, basketCFrame * wall.Offset, color)
-		attach(part, arm)
+		attach(part, hand)
 	end
 	local handle = Build.part(npc.Model, "BasketHandle", Vector3.new(0.1, 0.1, 1), basketCFrame * CFrame.new(0, 0.55, 0), color)
-	attach(handle, arm)
+	attach(handle, hand)
 	return basket
 end
 

@@ -50,7 +50,7 @@ To sell an item for real:
 2. Create a **Developer Product** for each entry in `Monetization.Products` (cash packs and boosts), and a **Game Pass** for each entry in `Monetization.Passes`.
 3. Paste each ID into the `Id` field in `src/shared/Monetization.luau` (in Studio: `ReplicatedStorage.Shared.Monetization`).
 
-Once an ID is set, the shop shows the item's real Robux price and uses Roblox's purchase prompt.
+Once an ID is set, the shop shows the item's real Robux price and uses Roblox's purchase prompt. Prices show the Robux logo. It's `rbxasset://textures/ui/common/robux.png`, which ships inside every Roblox client, so nothing needs uploading.
 
 Purchases are handled safely:
 
@@ -58,6 +58,14 @@ Purchases are handled safely:
 - The player's data is saved *before* Roblox is told the purchase succeeded.
 - Game passes are checked with `UserOwnsGamePassAsync` when a player joins.
 - Boost timers are saved, so they keep running if the player rejoins.
+
+### NPC characters
+
+Customers, workers and the cashier are standard Roblox R15 characters. Roblox builds them from a `HumanoidDescription` using `Players:CreateHumanoidModelFromDescription`: the default body and face, with different shirt, trouser and skin colours. They use Roblox's default R15 walk and idle animations.
+
+- Each look is created once when the server starts, then cloned for every NPC.
+- If Roblox can't create characters (for example, character assets fail to load), the game prints one warning and uses simple Part-built characters instead.
+- The looks are in `NpcBuilder.luau`. You could add clothing or accessory IDs to `describe()` for more variety.
 
 ### Drop-in meshes (optional)
 
@@ -79,15 +87,15 @@ How custom models are used:
 
 | System | Details |
 |---|---|
-| Plots | 6 shops per server (3 on each side of a road), one per player. The owner's name is on the sign and floats above the shop |
+| Plots | 6 shops per server (3 on each side of a road), one per player. The sign shows the shop's name (CORNER SHOP → LOCAL STORE → MINI SUPERMARKET) and its value; player names are never put on shops. A floating **⭐ YOUR SHOP** marker is shown only to the owner |
 | Deliveries | A van arrives every 20–28s and throws 3+ boxes onto your loading bay (up to 12 can wait there). The tape colour hints at the rarity of what's inside |
 | Boxes & stocking | **E — Pick Up Box**, then carry it to any shelf with space and press **E — Unpack Here**. It bursts open and the products fly onto the shelf. Anything that doesn't fit goes to your stock room. **E — Stock Shelf** fills shelves from the stock room, and the **STOCK** menu shows the stock room as spinning 3D products (tap one to shelve it first) |
 | Products | 14 products, from Water (£3) to Television (£700). Pricier ones appear as your shop grows |
 | Rare variants | Each unit can roll **Golden ×10**, **Rainbow ×100** or **Giant ×625** (Cola £8 → £80 → £800 → £5,000). Rares sparkle, Rainbow items cycle colours, Giant items are big, and you get a **✨ RAINBOW COLA!** banner |
-| Customers | Walk in, take products off stocked shelves, queue at the till, pay and leave. Coins fly from the till to your cash counter |
+| Customers | Default Roblox R15 characters (see below). They walk in, take products off stocked shelves, queue at the till, pay and leave. Coins fly from the till to your cash counter |
 | Upgrades | One menu: Shelf Capacity, Delivery Size, Customer Rate, Product Luck, Store Size, Workers, each with level pips and a before ➜ after preview |
 | Expansion | Corner Shop (2 shelves) → Local Store (4) → Mini Supermarket (10). The shop is rebuilt bigger and keeps its stock |
-| Workers | Staff NPCs restock the emptiest shelf from your stock room |
+| Workers | Staff NPCs in green (the cashier wears the same look) restock the emptiest shelf from your stock room |
 | Leaderboards | Three double-sided boards stand on the street's central reservation: **TOP STORES** (store value), **TOP EARNERS** and **MOST SOLD**, with avatars. The same boards are in the 🏆 **TOP** menu, and Value, Cash and Sold also show in the player list |
 | Robux shop | Cash packs that scale with progress, a 15-minute Customer Rush (3× customers), an Instant Delivery, and a Golden Crate (all Golden + a Rainbow). Passes: 2x Cash, Lucky Charm (2× rare chance), Big Deliveries, and VIP Shop (golden shop with a crown, red carpet, VIP tag and a free extra worker) |
 | World | Every plot has a car park with parked cars, planters, a bench and bin, a trolley corral, pallets of stock, a forklift, a picnic table, flower beds, hedges and a fence. Shops have marquee lights around the sign, a gumball machine and an ice-cream freezer |
@@ -160,6 +168,8 @@ rojo serve                 # live-sync into Studio with the Rojo plugin
 `tests/emulator/` is a small Roblox engine emulator for [Lune](https://lune-org.github.io/docs). It loads the built place file and runs the real server and client scripts on a virtual clock. It validates every property read and write against Roblox's API database, and simulates humanoid walking, welds, remotes, DataStores, OrderedDataStores, MarketplaceService and prompts.
 
 - `tests/playtest.luau` has a bot play like a brand-new player. It follows the tutorial (grab, unpack at a shelf, first sale, upgrade) and checks the timings and rewards. It then plays five minutes buying upgrades through the real UI buttons, and checks:
+  - NPCs are Roblox R15 characters, each look is made once, and the fallback works;
+  - player names never appear on shop signs;
   - the leaderboards;
   - every Robux shop item in Studio test mode;
   - real product and pass IDs, including receipt de-duplication;

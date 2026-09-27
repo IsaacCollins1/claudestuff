@@ -5,7 +5,8 @@
 --   * shelf prompts   — "Unpack Here" on the nearest shelf while carrying a
 --                       box, otherwise "Stock Shelf" when you have stock
 --   * "Open Box"      — inside your shop when no shelf is in reach
--- The server re-checks everything.
+-- The server re-checks everything. Owner-only GUIs (the floating
+-- "YOUR SHOP" marker) are switched on here too.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -18,6 +19,7 @@ local player = Players.LocalPlayer
 local Prompts = {}
 
 local TAG = "OwnedPrompt"
+local OWNER_ONLY_GUI_TAG = "OwnerOnlyGui" -- StoreBuilder.OwnerOnlyTag
 local owned: { [ProximityPrompt]: boolean } = {}
 
 local function register(instance: Instance)
@@ -98,11 +100,21 @@ function Prompts.update()
 	end
 end
 
+local function registerOwnerGui(instance: Instance)
+	if instance:IsA("LayerCollector") then
+		instance.Enabled = instance:GetAttribute("OwnerUserId") == player.UserId
+	end
+end
+
 function Prompts.init()
 	for _, prompt in CollectionService:GetTagged(TAG) do
 		register(prompt)
 	end
 	CollectionService:GetInstanceAddedSignal(TAG):Connect(register)
+	for _, gui in CollectionService:GetTagged(OWNER_ONLY_GUI_TAG) do
+		registerOwnerGui(gui)
+	end
+	CollectionService:GetInstanceAddedSignal(OWNER_ONLY_GUI_TAG):Connect(registerOwnerGui)
 	task.spawn(function()
 		while true do
 			Prompts.update()

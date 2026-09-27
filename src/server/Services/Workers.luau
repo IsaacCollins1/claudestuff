@@ -28,13 +28,6 @@ type Worker = {
 
 local Workers = {}
 
-local STAFF_STYLE: NpcBuilder.Style = {
-	Shirt = Color3.fromRGB(60, 190, 90),
-	Pants = Color3.fromRGB(40, 44, 60),
-	Skin = Color3.fromRGB(240, 190, 145),
-	Hat = Color3.fromRGB(255, 255, 255),
-}
-
 local function run(store: Store, worker: Worker)
 	local layout = store.Layout
 	local plotCFrame = store.Session.PlotCFrame
@@ -83,7 +76,7 @@ local function spawnWorker(store: Store, index: number)
 	local layout = store.Layout
 	local plotCFrame = store.Session.PlotCFrame
 	local home = layout.WorkerHome + Vector3.new(-(index - 1) * 2.6, 0, 0)
-	local npc = NpcBuilder.build(plotCFrame * CFrame.new(home) * CFrame.Angles(0, math.pi, 0), STAFF_STYLE, Config.WorkerWalkSpeed)
+	local npc = NpcBuilder.build(plotCFrame * CFrame.new(home) * CFrame.Angles(0, math.pi, 0), NpcBuilder.StaffStyle, Config.WorkerWalkSpeed)
 	npc.Model.Name = "Worker"
 	NpcBuilder.nameTag(npc, "STAFF", Color3.fromRGB(120, 255, 140))
 	NpcMotion.setCollisionGroup(npc.Model, "NPC")

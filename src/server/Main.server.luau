@@ -15,6 +15,7 @@ local PlayerData = require(Services.PlayerData)
 local Stores = require(Services.Stores)
 local TutorialService = require(Services.TutorialService)
 local UpgradeService = require(Services.UpgradeService)
+local NpcBuilder = require(script.Parent.Builders.NpcBuilder)
 local WorldBuilder = require(script.Parent.Builders.WorldBuilder)
 
 -- Collision groups: NPCs never block players or each other.
@@ -112,6 +113,7 @@ end
 
 Net.init()
 setupCollisionGroups()
+NpcBuilder.preload() -- Roblox characters for customers, workers and cashiers
 PlayerData.init()
 Stores.init()
 Leaderboards.buildSigns(workspace:WaitForChild("World"), WorldBuilder.leaderboardCFrames())

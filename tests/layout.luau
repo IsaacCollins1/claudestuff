@@ -74,7 +74,7 @@ for level = 1, StoreLevels.MaxLevel do
 	folder.Parent = runtime.workspace
 	-- Odd levels get the VIP look so both variants are checked.
 	local vip = level % 2 == 1
-	local built = StoreBuilder.build(plotCFrame, level, roblox.Color3.new(1, 0.4, 0.4), "Tester", 1, folder, vip)
+	local built = StoreBuilder.build(plotCFrame, level, roblox.Color3.new(1, 0.4, 0.4), 1, folder, vip)
 	local layout = StoreLevels.getLayout(level)
 	local parts = solids(built.Model)
 	check(#parts > 10, #parts .. " solid parts found" .. (if vip then " (VIP look)" else ""))

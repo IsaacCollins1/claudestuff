@@ -99,7 +99,7 @@ function Stores.open(session: Session): Store?
 		return nil
 	end
 	local level = math.clamp(data.Upgrades.StoreSize, 1, StoreLevels.MaxLevel)
-	local built = StoreBuilder.build(session.PlotCFrame, level, session.Accent, player.Name, player.UserId, session.PlotModel, Perks.has(player, "VIP"))
+	local built = StoreBuilder.build(session.PlotCFrame, level, session.Accent, player.UserId, session.PlotModel, Perks.has(player, "VIP"))
 	local store: Store = {
 		Session = session,
 		Owner = player,

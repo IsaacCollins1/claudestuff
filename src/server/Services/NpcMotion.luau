@@ -51,7 +51,7 @@ function NpcMotion.walkTo(walker: Walker, target: Vector3)
 		local now = os.clock()
 		if now > deadline then
 			-- Stuck (or pushed): pop them to the target.
-			root.CFrame = CFrame.new(target + Vector3.new(0, 3, 0)) * root.CFrame.Rotation
+			root.CFrame = CFrame.new(target + Vector3.new(0, npc.RootHeight, 0)) * root.CFrame.Rotation
 			humanoid:MoveTo(target)
 			return
 		end

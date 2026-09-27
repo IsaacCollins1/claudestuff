@@ -26,6 +26,7 @@ type Card = {
 	Frame: Frame,
 	Amount: TextLabel?,
 	Buy: UIKit.Chunky,
+	Price: UIKit.RobuxPrice,
 	Tag: Frame,
 	Kind: string,
 	Key: string,
@@ -56,8 +57,9 @@ local function itemId(kind: string, key: string): number
 	return Monetization.Products[key].Id
 end
 
-local function priceText(id: number, fallback: number): string
-	return `{UIKit.Robux} {prices[id] or fallback}`
+-- The real Robux price once it has been fetched, else the catalogue's number.
+local function priceOf(id: number, fallback: number): number
+	return prices[id] or fallback
 end
 
 -- Fetch real prices for configured items (once).
@@ -165,12 +167,12 @@ local function card(parent: Instance, kind: string, key: string, order: number, 
 		Position = UDim2.new(0.5, 0, 1, -10),
 		Size = UDim2.new(1, -24, 0, 50),
 		Color = Colors.Green,
-		Text = priceText(itemId(kind, key), 0),
 		ZIndex = 24,
-		MaxTextSize = 26,
 	}, function()
 		purchase(kind, key)
 	end)
+	-- Robux logo + price on the button.
+	local price = UIKit.robuxPrice(buy.Face, 26, Colors.Outline, 28)
 	-- "TEST" sticker for items without a real ID yet (only shown in Studio).
 	local tag = UIKit.new("Frame", {
 		Name = "TestTag",
@@ -184,7 +186,7 @@ local function card(parent: Instance, kind: string, key: string, order: number, 
 	UIKit.corner(tag, UDim.new(1, 0))
 	UIKit.stroke(tag, Colors.Outline, 2)
 	UIKit.title(tag, "TEST", { Size = UDim2.new(1, -8, 1, -6), Position = UDim2.fromOffset(4, 3), ZIndex = 27 }, Colors.Outline, 1.5)
-	return { Frame = frame, Amount = amount, Buy = buy, Tag = tag, Kind = kind, Key = key }
+	return { Frame = frame, Amount = amount, Buy = buy, Price = price, Tag = tag, Kind = kind, Key = key }
 end
 
 local function page(name: string): ScrollingFrame
@@ -215,33 +217,24 @@ local function refresh()
 	local data = State.Data
 	local studio = isStudio()
 	for _, entry in cards do
-		local label = entry.Buy.Text
 		local id = itemId(entry.Kind, entry.Key)
 		entry.Tag.Visible = studio and id == 0
 		if id == 0 and not studio then
 			-- Not set up for real purchases yet.
 			entry.Buy.SetColor(Colors.GreyDark)
-			if label then
-				label.Text = "SOON"
-			end
+			entry.Price.Set(nil, "SOON")
 		elseif entry.Kind == "Pass" then
 			local pass = Monetization.Passes[entry.Key]
 			if State.hasPass(entry.Key) then
 				entry.Buy.SetColor(Colors.GreyDark)
-				if label then
-					label.Text = "OWNED ✔"
-				end
+				entry.Price.Set(nil, "OWNED ✔")
 			else
 				entry.Buy.SetColor(Colors.Green)
-				if label then
-					label.Text = priceText(pass.Id, pass.Robux)
-				end
+				entry.Price.Set(priceOf(pass.Id, pass.Robux))
 			end
 		else
 			local product = Monetization.Products[entry.Key]
-			if label then
-				label.Text = priceText(product.Id, product.Robux)
-			end
+			entry.Price.Set(priceOf(product.Id, product.Robux))
 			if entry.Amount and data then
 				entry.Amount.Text = "+" .. Format.money(Monetization.cashAmount(product, data.TotalEarned))
 			end

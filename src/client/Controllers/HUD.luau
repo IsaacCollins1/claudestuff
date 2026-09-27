@@ -130,6 +130,18 @@ local function buildButtons()
 	end)
 	UIKit.shine(shop.Face, UDim.new(0, 18), 2.5)
 	UIKit.wobble(shop.Button, 3)
+	-- Robux logo badge: the shop is where Robux purchases live.
+	local robuxBadge = UIKit.new("Frame", {
+		Name = "RobuxBadge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -8, 0, 8),
+		Size = UDim2.fromOffset(34, 34),
+		BackgroundColor3 = Colors.Green,
+		ZIndex = 20,
+	}, shop.Button)
+	UIKit.corner(robuxBadge, UDim.new(1, 0))
+	UIKit.stroke(robuxBadge, Colors.White, 3)
+	UIKit.robuxIcon(robuxBadge, 22, { Position = UDim2.fromOffset(5, 5), ZIndex = 21 })
 	local upgrades = bigButton("Upgrades", "⬆️", "UPGRADE", Colors.Green, 2, function()
 		HUD.UpgradesPressed:Fire()
 	end)

@@ -329,6 +329,19 @@ local function registerApi()
 	Instances.method("DataStoreService", "GetOrderedDataStore", function(_, name)
 		return current:getOrderedDataStore(name)
 	end)
+	-- Roblox characters for NPCs: an R15 rig (MeshParts + Motor6Ds) coloured from
+	-- the description, like the real thing minus the meshes. options.characterAssets
+	-- = "fail" makes it error the way it does when assets can't load.
+	Instances.method("Players", "CreateHumanoidModelFromDescription", function(_, description, rigType)
+		assert(Instances.isInstance(description) and description:IsA("HumanoidDescription"), "CreateHumanoidModelFromDescription: bad description")
+		assert(rigType == Enum.HumanoidRigType.R15 or rigType == Enum.HumanoidRigType.R6, "CreateHumanoidModelFromDescription: bad rig type")
+		Scheduler.wait(0.1)
+		if current.options.characterAssets == "fail" then
+			error("Players:CreateHumanoidModelFromDescription() failed because HTTP 403 (Forbidden)")
+		end
+		current.charactersCreated += 1
+		return current:buildR15(description)
+	end)
 	Instances.method("Players", "GetNameFromUserIdAsync", function(_, userId)
 		Scheduler.wait(0.05)
 		return "User" .. tostring(userId)
@@ -527,6 +540,7 @@ function Runtime.new(options: Options)
 	self.ownedPasses = options.ownedPasses or {}
 	self.purchaseCounter = 0
 	self.receiptAttempts = 3
+	self.charactersCreated = 0
 	self.receiptLog = {}
 
 	local game = Instances.new("DataModel", true)
@@ -841,6 +855,70 @@ local function motor(name, part0, part1, c0, c1)
 	joint.C1 = c1
 	joint.Parent = part1
 	return joint
+end
+
+-- name, size, offset from the root centre, colour field, parent part, joint name
+local R15_PARTS = {
+	{ "LowerTorso", Vector3.new(2, 0.4, 1), Vector3.new(0, -0.8, 0), "TorsoColor", "HumanoidRootPart", "Root" },
+	{ "UpperTorso", Vector3.new(2, 1.6, 1), Vector3.new(0, 0.2, 0), "TorsoColor", "LowerTorso", "Waist" },
+	{ "Head", Vector3.new(1.2, 1.2, 1.2), Vector3.new(0, 1.6, 0), "HeadColor", "UpperTorso", "Neck" },
+	{ "RightUpperArm", Vector3.new(1, 1.2, 1), Vector3.new(1.5, 0.4, 0), "RightArmColor", "UpperTorso", "RightShoulder" },
+	{ "RightLowerArm", Vector3.new(1, 1, 1), Vector3.new(1.5, -0.7, 0), "RightArmColor", "RightUpperArm", "RightElbow" },
+	{ "RightHand", Vector3.new(1, 0.3, 1), Vector3.new(1.5, -1.35, 0), "RightArmColor", "RightLowerArm", "RightWrist" },
+	{ "LeftUpperArm", Vector3.new(1, 1.2, 1), Vector3.new(-1.5, 0.4, 0), "LeftArmColor", "UpperTorso", "LeftShoulder" },
+	{ "LeftLowerArm", Vector3.new(1, 1, 1), Vector3.new(-1.5, -0.7, 0), "LeftArmColor", "LeftUpperArm", "LeftElbow" },
+	{ "LeftHand", Vector3.new(1, 0.3, 1), Vector3.new(-1.5, -1.35, 0), "LeftArmColor", "LeftLowerArm", "LeftWrist" },
+	{ "RightUpperLeg", Vector3.new(1, 1, 1), Vector3.new(0.5, -1.5, 0), "RightLegColor", "LowerTorso", "RightHip" },
+	{ "RightLowerLeg", Vector3.new(1, 0.7, 1), Vector3.new(0.5, -2.35, 0), "RightLegColor", "RightUpperLeg", "RightKnee" },
+	{ "RightFoot", Vector3.new(1, 0.3, 1), Vector3.new(0.5, -2.85, 0), "RightLegColor", "RightLowerLeg", "RightAnkle" },
+	{ "LeftUpperLeg", Vector3.new(1, 1, 1), Vector3.new(-0.5, -1.5, 0), "LeftLegColor", "LowerTorso", "LeftHip" },
+	{ "LeftLowerLeg", Vector3.new(1, 0.7, 1), Vector3.new(-0.5, -2.35, 0), "LeftLegColor", "LeftUpperLeg", "LeftKnee" },
+	{ "LeftFoot", Vector3.new(1, 0.3, 1), Vector3.new(-0.5, -2.85, 0), "LeftLegColor", "LeftLowerLeg", "LeftAnkle" },
+}
+
+function Runtime:buildR15(description)
+	local model = Instances.new("Model", true)
+	model.Name = "Character"
+	local base = CFrame.new(0, 3, 0)
+	local root = Instances.new("Part", true)
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2, 2, 1)
+	root.CFrame = base
+	root.Transparency = 1
+	root.Parent = model
+	local parts = { HumanoidRootPart = root }
+	for _, spec in R15_PARTS do
+		local part = Instances.new("MeshPart", true)
+		part.Name = spec[1]
+		part.Size = spec[2]
+		part.CFrame = base * CFrame.new(spec[3])
+		part.Color = description[spec[4]]
+		part.Parent = model
+		parts[spec[1]] = part
+		local joint = Instances.new("Motor6D", true)
+		joint.Name = spec[6]
+		joint.Part0 = parts[spec[5]]
+		joint.Part1 = part
+		joint.C0 = parts[spec[5]].CFrame:ToObjectSpace(part.CFrame)
+		joint.C1 = CFrame.new()
+		joint.Parent = part
+	end
+	local face = Instances.new("Decal", true)
+	face.Name = "face"
+	face.Texture = "rbxasset://textures/face.png"
+	face.Parent = parts.Head
+	local humanoid = Instances.new("Humanoid", true)
+	humanoid.RigType = Enum.HumanoidRigType.R15
+	humanoid.HipHeight = 2
+	humanoid.Parent = model
+	Instances.new("Animator", true).Parent = humanoid
+	description:Clone().Parent = humanoid
+	-- Real characters come with the (client-side) Animate script.
+	local animate = Instances.new("LocalScript", true)
+	animate.Name = "Animate"
+	animate.Parent = model
+	model.PrimaryPart = root
+	return model
 end
 
 function Runtime:spawnCharacter(player)

@@ -17,6 +17,8 @@ local PropBuilder = require(script.Parent.PropBuilder)
 local StoreBuilder = {}
 
 StoreBuilder.ShelfTag = "Shelf"
+-- GUIs only the shop's owner should see (the client enables them).
+StoreBuilder.OwnerOnlyTag = "OwnerOnlyGui"
 
 export type BuiltShelf = {
 	Model: Model,
@@ -124,7 +126,7 @@ local function buildShelf(parent: Instance, index: number, worldCFrame: CFrame, 
 	}
 end
 
-function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, ownerName: string, ownerUserId: number, parent: Instance, vip: boolean?): Built
+function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, ownerUserId: number, parent: Instance, vip: boolean?): Built
 	local layout = StoreLevels.getLayout(level)
 	local model = Instance.new("Model")
 	model.Name = "Store"
@@ -226,7 +228,8 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	end
 	awning.Parent = model
 
-	-- Big sign on top of the front wall: "ISAAC'S STORE / Value: £1,250"
+	-- Big sign on top of the front wall: "CORNER SHOP / Value: £1,250".
+	-- (Player names are deliberately never shown on shops.)
 	local signCFrame = plotCFrame * layout.SignCFrame
 	local signWidth = math.min(w - 4, 24)
 	local signBack = Build.part(model, "SignBack", Vector3.new(signWidth + 0.8, 5.3, 0.6), signCFrame * CFrame.new(0, 0, 0.35), trim)
@@ -279,8 +282,8 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	signGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	signGui.PixelsPerStud = 40
 	signGui.Parent = sign
-	local nameLabel = Build.textLabel(signGui, string.upper(ownerName) .. "'S STORE", darken(accent, 0.25))
-	nameLabel.Name = "OwnerName"
+	local nameLabel = Build.textLabel(signGui, string.upper(layout.Spec.Name), darken(accent, 0.25))
+	nameLabel.Name = "ShopName"
 	nameLabel.Size = UDim2.fromScale(0.94, 0.58)
 	nameLabel.Position = UDim2.fromScale(0.03, 0.04)
 	local valueLabel = Build.textLabel(signGui, "Value: £0", DARK)
@@ -288,10 +291,14 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	valueLabel.Size = UDim2.fromScale(0.8, 0.32)
 	valueLabel.Position = UDim2.fromScale(0.1, 0.62)
 
-	-- Floating name above the shop so it can be read from far away.
-	local nameBoard = Build.billboard(sign, UDim2.fromScale(20, 3), Vector3.new(0, 5.5, 0), 350)
-	nameBoard.Name = "OwnerBillboard"
-	local floating = Build.textLabel(nameBoard, (if vip then "👑 " else "🏪 ") .. ownerName, if vip then GOLD else WHITE)
+	-- Floating "YOUR SHOP" marker so owners can spot their shop from far away.
+	-- Only the owner's client turns it on.
+	local marker = Build.billboard(sign, UDim2.fromScale(20, 3), Vector3.new(0, 5.5, 0), 350)
+	marker.Name = "YourShopMarker"
+	marker.Enabled = false
+	marker:SetAttribute("OwnerUserId", ownerUserId)
+	CollectionService:AddTag(marker, StoreBuilder.OwnerOnlyTag)
+	local floating = Build.textLabel(marker, (if vip then "👑 " else "⭐ ") .. "YOUR SHOP", if vip then GOLD else WHITE)
 	Build.stroke(floating, darken(trim, 0.45), 3)
 
 	-- Inside: door mat, plants, "OPEN" sign.
@@ -340,12 +347,7 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 
 	-- A friendly (decorative) cashier behind the till.
 	local cashierCFrame = counterCFrame * CFrame.new(-counterSize.X / 2 - 1.3, 0, 0) * CFrame.Angles(0, math.rad(-90), 0)
-	local cashier = NpcBuilder.buildStatic(cashierCFrame, {
-		Shirt = accent,
-		Pants = DARK,
-		Skin = Color3.fromRGB(255, 205, 160),
-		Hat = WHITE,
-	})
+	local cashier = NpcBuilder.buildStatic(cashierCFrame, NpcBuilder.StaffStyle)
 	cashier.Name = "Cashier"
 	cashier.Parent = model
 
@@ -379,6 +381,7 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	Build.decor(interior)
 
 	model.Parent = parent
+	NpcBuilder.playIdle(cashier)
 	return {
 		Model = model,
 		Shelves = shelves,

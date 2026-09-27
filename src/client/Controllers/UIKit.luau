@@ -8,7 +8,8 @@ local UIKit = {}
 
 UIKit.Font = Enum.Font.FredokaOne -- body text
 UIKit.Title = Enum.Font.LuckiestGuy -- big numbers, buttons, headings
-UIKit.Robux = utf8.char(0xE002) -- Roblox's built-in Robux icon glyph
+-- The Robux logo. It ships inside every Roblox client, so it needs no upload.
+UIKit.RobuxImage = "rbxasset://textures/ui/common/robux.png"
 
 UIKit.Colors = {
 	Dark = Color3.fromRGB(26, 28, 42),
@@ -236,6 +237,87 @@ function UIKit.coin(parent: Instance?, size: number, props: { [string]: any }?):
 	end
 	coin.Parent = parent
 	return coin
+end
+
+-- White Robux logo with a dark drop shadow so it reads on any colour.
+function UIKit.robuxIcon(parent: Instance?, size: number, props: { [string]: any }?): Frame
+	local holder = UIKit.new("Frame", {
+		Name = "RobuxIcon",
+		Size = UDim2.fromOffset(size, size),
+		BackgroundTransparency = 1,
+	}, nil)
+	if props then
+		for key, value in props do
+			(holder :: any)[key] = value
+		end
+	end
+	local shadowOffset = math.max(1, math.floor(size / 12))
+	UIKit.new("ImageLabel", {
+		Name = "Shadow",
+		Size = UDim2.fromScale(1, 1),
+		Position = UDim2.fromOffset(shadowOffset, shadowOffset),
+		BackgroundTransparency = 1,
+		Image = UIKit.RobuxImage,
+		ImageColor3 = UIKit.Colors.Outline,
+		ImageTransparency = 0.3,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = holder.ZIndex,
+	}, holder)
+	UIKit.new("ImageLabel", {
+		Name = "Logo",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Image = UIKit.RobuxImage,
+		ScaleType = Enum.ScaleType.Fit,
+		ZIndex = holder.ZIndex + 1,
+	}, holder)
+	holder.Parent = parent
+	return holder
+end
+
+export type RobuxPrice = {
+	Frame: Frame,
+	Icon: Frame,
+	Amount: TextLabel,
+	-- Show a Robux price, or plain text (e.g. "OWNED ✔") without the logo.
+	Set: (amount: number?, text: string?) -> (),
+}
+
+-- "[R$ logo] 249" centred inside `parent` (e.g. a chunky button's face).
+function UIKit.robuxPrice(parent: Instance, textSize: number, strokeColor: Color3, zIndex: number): RobuxPrice
+	local row = UIKit.new("Frame", {
+		Name = "Price",
+		Size = UDim2.new(1, -12, 0.8, 0),
+		Position = UDim2.new(0, 6, 0.1, 0),
+		BackgroundTransparency = 1,
+		ZIndex = zIndex,
+	}, parent)
+	UIKit.new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+		Padding = UDim.new(0, math.floor(textSize / 5)),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, row)
+	local icon = UIKit.robuxIcon(row, textSize, { LayoutOrder = 1, ZIndex = zIndex })
+	local amount = UIKit.title(row, "0", {
+		Name = "Amount",
+		AutomaticSize = Enum.AutomaticSize.X,
+		Size = UDim2.fromOffset(0, textSize + 4),
+		TextScaled = false,
+		TextSize = textSize,
+		LayoutOrder = 2,
+		ZIndex = zIndex,
+	}, strokeColor, 2.5)
+	return {
+		Frame = row,
+		Icon = icon,
+		Amount = amount,
+		Set = function(price: number?, text: string?)
+			icon.Visible = price ~= nil
+			amount.Text = if price then tostring(price) else (text or "")
+		end,
+	}
 end
 
 function UIKit.badge(parent: Instance, color: Color3, text: string): (Frame, TextLabel)
