@@ -1,7 +1,11 @@
 --!strict
 -- ProximityPrompts on stores are only shown to their owner, and only when
--- they can actually be used (e.g. "Stock Shelf" needs stock and free space,
--- "Open Box" needs you to be inside your shop). The server re-checks everything.
+-- they can actually be used:
+--   * "Pick Up Box"   — when your hands are free
+--   * shelf prompts   — "Unpack Here" on the nearest shelf while carrying a
+--                       box, otherwise "Stock Shelf" when you have stock
+--   * "Open Box"      — inside your shop when no shelf is in reach
+-- The server re-checks everything.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -27,20 +31,38 @@ local function register(instance: Instance)
 	owned[instance] = true
 end
 
-local function shouldEnable(prompt: ProximityPrompt, carrying: boolean, stock: number, inside: boolean): boolean
-	local kind = prompt:GetAttribute("Kind")
-	if kind == "Shelf" then
-		local shelf = prompt:FindFirstAncestorOfClass("Model")
-		local count = shelf and shelf:GetAttribute("Count")
-		local capacity = shelf and shelf:GetAttribute("Capacity")
-		local hasSpace = type(count) == "number" and type(capacity) == "number" and count < capacity
-		return not carrying and stock > 0 and hasSpace
-	elseif kind == "Box" then
-		return not carrying
-	elseif kind == "OpenBox" then
-		return inside
+local function promptPosition(prompt: ProximityPrompt): Vector3?
+	local parent = prompt.Parent
+	if parent and parent:IsA("Attachment") then
+		return parent.WorldPosition
+	elseif parent and parent:IsA("BasePart") then
+		return parent.Position
 	end
-	return true
+	return nil
+end
+
+local function shelfHasSpace(prompt: ProximityPrompt): boolean
+	local shelf = prompt:FindFirstAncestorOfClass("Model")
+	local count = shelf and shelf:GetAttribute("Count")
+	local capacity = shelf and shelf:GetAttribute("Capacity")
+	return type(count) == "number" and type(capacity) == "number" and count < capacity
+end
+
+-- The shelf prompt a carried box would be unpacked at (nearest in reach with space).
+local function unpackTarget(root: BasePart): ProximityPrompt?
+	local best: ProximityPrompt? = nil
+	local bestDistance = math.huge
+	for prompt in owned do
+		if prompt:GetAttribute("Kind") == "Shelf" and shelfHasSpace(prompt) then
+			local position = promptPosition(prompt)
+			local distance = if position then (position - root.Position).Magnitude else math.huge
+			if distance <= prompt.MaxActivationDistance and distance < bestDistance then
+				bestDistance = distance
+				best = prompt
+			end
+		end
+	end
+	return best
 end
 
 function Prompts.update()
@@ -48,14 +70,30 @@ function Prompts.update()
 	local stock = State.inventoryTotal()
 	local root = StoreQuery.rootPart()
 	local inside = root ~= nil and StoreQuery.isInside(root.Position)
+	local target = if carrying and root and inside then unpackTarget(root) else nil
+
 	for prompt in owned do
 		if not prompt:IsDescendantOf(workspace) then
 			owned[prompt] = nil
-		else
-			local enabled = shouldEnable(prompt, carrying, stock, inside)
-			if prompt.Enabled ~= enabled then
-				prompt.Enabled = enabled
+			continue
+		end
+		local kind = prompt:GetAttribute("Kind")
+		local enabled = true
+		if kind == "Shelf" then
+			if carrying then
+				enabled = prompt == target
+				prompt.ActionText = "Unpack Here"
+			else
+				enabled = stock > 0 and shelfHasSpace(prompt)
+				prompt.ActionText = "Stock Shelf"
 			end
+		elseif kind == "Box" then
+			enabled = not carrying
+		elseif kind == "OpenBox" then
+			enabled = inside and target == nil
+		end
+		if prompt.Enabled ~= enabled then
+			prompt.Enabled = enabled
 		end
 	end
 end
@@ -68,7 +106,7 @@ function Prompts.init()
 	task.spawn(function()
 		while true do
 			Prompts.update()
-			task.wait(0.12)
+			task.wait(0.1)
 		end
 	end)
 end

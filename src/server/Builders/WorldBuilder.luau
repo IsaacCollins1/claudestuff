@@ -9,6 +9,8 @@ local Build = require(Shared.Build)
 local Config = require(Shared.Config)
 local StoreLevels = require(Shared.StoreLevels)
 
+local PropBuilder = require(script.Parent.PropBuilder)
+
 local WorldBuilder = {}
 
 WorldBuilder.PlotY = 0.3 -- world height of the plot surface
@@ -51,14 +53,53 @@ function WorldBuilder.plotCFrames(): { CFrame }
 	return cframes
 end
 
-local function tree(parent: Instance, position: Vector3, scale: number)
-	local model = Instance.new("Model")
-	model.Name = "Tree"
-	Build.cylinder(model, "Trunk", 7 * scale, 1.6 * scale, CFrame.new(position + Vector3.new(0, 3.5 * scale, 0)), Color3.fromRGB(130, 88, 55))
-	local leafColor = Color3.fromRGB(70, 180, 80)
-	Build.ball(model, "Leaves", 8 * scale, CFrame.new(position + Vector3.new(0, 8.5 * scale, 0)), leafColor)
-	Build.ball(model, "Leaves2", 5.5 * scale, CFrame.new(position + Vector3.new(1.8 * scale, 11 * scale, 0.6 * scale)), Color3.fromRGB(95, 200, 95))
-	model.Parent = parent
+local CAR_COLORS = {
+	Color3.fromRGB(80, 150, 255),
+	Color3.fromRGB(255, 205, 60),
+	Color3.fromRGB(240, 240, 245),
+	Color3.fromRGB(255, 110, 90),
+	Color3.fromRGB(120, 220, 140),
+	Color3.fromRGB(190, 130, 255),
+}
+
+-- Props around the shop, kept clear of the paths players and customers walk:
+-- a car park and seating on the left, pallets and a forklift by the loading
+-- bay, and a fence, hedges and a picnic spot around the back and sides.
+local function decoratePlot(parent: Instance, index: number, plotCFrame: CFrame, accent: Color3)
+	local decor = Instance.new("Folder")
+	decor.Name = "Decor"
+	local function at(x: number, z: number, yaw: number?): CFrame
+		return plotCFrame * CFrame.new(x, 0, z) * CFrame.Angles(0, math.rad(yaw or 0), 0)
+	end
+	local seed = index * 100
+
+	-- Front left: car park with two parked cars.
+	PropBuilder.parking(decor, at(-31, -32.5), 3, 7, 11)
+	PropBuilder.car(decor, at(-38, -32.5, 180), CAR_COLORS[(index - 1) % #CAR_COLORS + 1])
+	PropBuilder.car(decor, at(-24, -32, 180), CAR_COLORS[(index + 2) % #CAR_COLORS + 1])
+
+	-- Along the path: planters, a bench and a bin facing the path, trolleys by the door.
+	PropBuilder.planter(decor, at(-8.5, -34, 90), 6, seed + 1)
+	PropBuilder.planter(decor, at(8.5, -34, 90), 6, seed + 2)
+	PropBuilder.bench(decor, at(-9.5, -22, -90), accent)
+	PropBuilder.bin(decor, at(-9.5, -17.5), Color3.fromRGB(60, 150, 90))
+	PropBuilder.cartCorral(decor, at(-13, -10), accent)
+
+	-- Loading bay: pallets of stock waiting to go in and a forklift.
+	PropBuilder.pallet(decor, at(32, -11), 2, accent)
+	PropBuilder.pallet(decor, at(37, -11, 8), 1, Color3.fromRGB(255, 200, 60))
+	PropBuilder.forklift(decor, at(41.5, -3.5), Color3.fromRGB(255, 190, 40))
+
+	-- Sides and back.
+	PropBuilder.picnicTable(decor, at(-37, 8), accent)
+	PropBuilder.flowerBed(decor, at(-37, 24), Vector2.new(8, 6), seed + 3)
+	PropBuilder.hedge(decor, at(-43, 18, 90), 36, seed + 4)
+	PropBuilder.hedge(decor, at(43, 22, 90), 28, seed + 5)
+	PropBuilder.pallet(decor, at(37, 17, -12), 1, accent)
+	PropBuilder.dumpster(decor, at(37, 31), Color3.fromRGB(60, 150, 90))
+	PropBuilder.fence(decor, at(0, Config.PlotDepth / 2 - 1), Config.PlotWidth - 4)
+
+	decor.Parent = parent
 end
 
 local function lamp(parent: Instance, position: Vector3)
@@ -129,6 +170,8 @@ local function buildPlot(parent: Instance, index: number, plotCFrame: CFrame): P
 	Build.surfaceText(board, Enum.NormalId.Front, "🏪 FREE PLOT", accent)
 	vacant.Parent = model
 
+	decoratePlot(model, index, plotCFrame, accent)
+
 	model.Parent = parent
 	return {
 		Index = index,
@@ -136,6 +179,16 @@ local function buildPlot(parent: Instance, index: number, plotCFrame: CFrame): P
 		Model = model,
 		Accent = accent,
 		VacantSign = vacant,
+	}
+end
+
+-- Where the three leaderboard signs stand (on the central reservation).
+function WorldBuilder.leaderboardCFrames(): { CFrame }
+	local gap = Config.PlotSpacing / 2
+	return {
+		CFrame.new(-gap, 0.5, 0),
+		CFrame.new(0, 0.5, 0),
+		CFrame.new(gap, 0.5, 0),
 	}
 end
 
@@ -151,9 +204,18 @@ function WorldBuilder.build(): { PlotInfo }
 
 	Build.part(world, "Ground", Vector3.new(length, 2, depth), CFrame.new(0, -1, 0), GRASS)
 	Build.part(world, "Road", Vector3.new(length, 0.2, Config.RoadWidth), CFrame.new(0, 0.1, 0), ROAD)
+	-- Grassy central reservation (the leaderboards stand on it), dashed lines either side of the ends.
+	local medianLength = perSide * Config.PlotSpacing
+	Build.part(world, "Median", Vector3.new(medianLength, 0.5, 4), CFrame.new(0, 0.25, 0), PLOT_GRASS)
+	for _, side in { -1, 1 } do
+		local kerb = Build.part(world, "MedianKerb", Vector3.new(medianLength, 0.55, 0.4), CFrame.new(0, 0.275, side * 2.1), Color3.fromRGB(235, 235, 240))
+		Build.decor(kerb)
+	end
 	for x = -length / 2 + 6, length / 2 - 6, 14 do
-		local dash = Build.part(world, "LaneDash", Vector3.new(7, 0.05, 0.6), CFrame.new(x, 0.22, 0), Color3.fromRGB(255, 255, 255))
-		Build.decor(dash)
+		if math.abs(x) > medianLength / 2 + 4 then
+			local dash = Build.part(world, "LaneDash", Vector3.new(7, 0.05, 0.6), CFrame.new(x, 0.22, 0), Color3.fromRGB(255, 255, 255))
+			Build.decor(dash)
+		end
 	end
 	local pavementZ = Config.RoadWidth / 2 + Config.SidewalkWidth / 2
 	for _, side in { -1, 1 } do
@@ -172,7 +234,7 @@ function WorldBuilder.build(): { PlotInfo }
 		local x = (column - perSide / 2) * Config.PlotSpacing
 		for _, side in { -1, 1 } do
 			for _, dz in { -22, 6, 32 } do
-				tree(world, Vector3.new(x, 0, side * (zOffset + dz)), 0.9 + ((column + dz) % 3) * 0.12)
+				PropBuilder.tree(world, CFrame.new(x, 0, side * (zOffset + dz)), 0.9 + ((column + dz) % 3) * 0.12, column * 7 + dz)
 			end
 		end
 	end

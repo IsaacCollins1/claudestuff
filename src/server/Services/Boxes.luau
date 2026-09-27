@@ -16,7 +16,9 @@ local StoreLevels = require(Shared.StoreLevels)
 local Upgrades = require(Shared.Upgrades)
 local Variants = require(Shared.Variants)
 
+local Events = require(script.Parent.Events)
 local Net = require(script.Parent.Net)
+local Perks = require(script.Parent.Perks)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
 
@@ -154,19 +156,41 @@ local function placeOnSpot(info: BoxInfo, spot: number)
 	end)
 end
 
--- Creates a box that flies from `from` (the van) onto a loading bay spot.
-function Boxes.spawn(session: Session, spot: number, from: CFrame)
-	local player = session.Player
+-- The most valuable product deliveries can currently contain.
+local function bestProduct(storeLevel: number): Products.Product
+	local best = Products.List[1]
+	for _, product in Products.poolForLevel(storeLevel) do
+		if product.SellPrice > best.SellPrice then
+			best = product
+		end
+	end
+	return best
+end
+
+-- What's inside a new box: product and number of units.
+local function rollBox(player: Player, special: string?): (Products.Product?, number)
 	local data = PlayerData.get(player)
 	if not data then
-		return
+		return nil, 0
 	end
 	local storeLevel = data.Upgrades.StoreSize
-	local product = Products.rollForBox(rng, storeLevel)
-	local multiplier = Upgrades.quantityMultiplier(data.Upgrades.DeliverySize)
+	local product = if special == "Golden" then bestProduct(storeLevel) else Products.rollForBox(rng, storeLevel)
+	local multiplier = Upgrades.quantityMultiplier(data.Upgrades.DeliverySize) * Perks.deliveryQuantityMultiplier(player)
 	local quantity = math.max(1, math.floor(rng:NextInteger(product.BoxMin, product.BoxMax) * multiplier + 0.5))
+	return product, quantity
+end
 
-	local box = BoxVisual.build(Products.Rarities[product.Rarity].Color)
+-- Creates a box that flies from `from` (the van) onto a loading bay spot.
+-- `special` = "Golden" makes a Golden Crate (Robux shop).
+function Boxes.spawn(session: Session, spot: number, from: CFrame, special: string?)
+	local player = session.Player
+	local product, quantity = rollBox(player, special)
+	if not product then
+		return
+	end
+
+	local tape = if special == "Golden" then Variants.GoldColor else Products.Rarities[product.Rarity].Color
+	local box = BoxVisual.build(tape, false, special == "Golden")
 	session.NextBoxId += 1
 	box.Model.Name = "DeliveryBox" .. session.NextBoxId
 	box.Model:SetAttribute("OwnerUserId", player.UserId)
@@ -183,6 +207,7 @@ function Boxes.spawn(session: Session, spot: number, from: CFrame)
 		Carried = false,
 		Opened = false,
 		Prompt = nil,
+		Special = special,
 	}
 	session.Boxes[box.Model] = info
 
@@ -243,6 +268,7 @@ function Boxes.pickup(player: Player, info: BoxInfo)
 		Boxes.open(triggeringPlayer, info)
 	end)
 	Net.effectTo(player, "Pickup", {})
+	Events.BoxPickedUp:Fire(player)
 end
 
 local function detach(info: BoxInfo)
@@ -264,9 +290,18 @@ end
 local function rollContents(player: Player, info: BoxInfo): { { Key: string, Count: number } }
 	local data = PlayerData.get(player)
 	local luck = if data then Upgrades.luckMultiplier(data.Upgrades.ProductLuck) else 1
+	luck *= Perks.luckMultiplier(player)
 	local counts: { [string]: number } = {}
-	for _ = 1, info.Quantity do
-		local key = Items.key(info.ProductId, Variants.roll(rng, luck))
+	for unit = 1, info.Quantity do
+		local variant = Variants.roll(rng, luck)
+		if info.Special == "Golden" then
+			-- Golden Crate: everything is at least Golden, and one is Rainbow.
+			variant = if unit == 1 then "Rainbow" else Variants.roll(rng, luck * 20)
+			if variant == "Normal" then
+				variant = "Golden"
+			end
+		end
+		local key = Items.key(info.ProductId, variant)
 		counts[key] = (counts[key] or 0) + 1
 	end
 	local contents = {}
@@ -280,6 +315,46 @@ local function rollContents(player: Player, info: BoxInfo): { { Key: string, Cou
 	return contents
 end
 
+-- Opens a carried box: adds its products to the stock room and plays the
+-- opening animation at `openCFrame`. `flyTo` is where the products fly
+-- (a shelf when unpacking), otherwise they fly to the player.
+local function openAt(player: Player, info: BoxInfo, openCFrame: CFrame, flyTo: Vector3?): { { Key: string, Count: number } }
+	local session = info.Session
+	info.Opened = true
+	detach(info)
+	session.Boxes[info.Model] = nil
+	info.Model:Destroy()
+
+	local contents = rollContents(player, info)
+	local data = PlayerData.get(player)
+	if data then
+		data.Stats.BoxesOpened += 1
+	end
+	Events.BoxOpened:Fire(player, info.Quantity)
+
+	Net.effectAll("BoxOpen", {
+		CFrame = openCFrame,
+		Contents = contents,
+		OwnerId = player.UserId,
+		TapeColor = if info.Special == "Golden"
+			then Variants.GoldColor
+			else Products.Rarities[Items.product(contents[1].Key).Rarity].Color,
+		FlyTo = flyTo,
+		Special = info.Special,
+	})
+
+	for _, entry in contents do
+		if Items.isRare(entry.Key) then
+			if data then
+				data.Stats.RaresFound += entry.Count
+			end
+			Net.notify(player, "Rare", "✨ " .. string.upper(Items.displayName(entry.Key)) .. "!")
+		end
+	end
+	return contents
+end
+
+-- "Open Box" prompt: opens on the floor in front of the player (inside the shop only).
 function Boxes.open(player: Player, info: BoxInfo)
 	local session = info.Session
 	if player ~= session.Player or not info.Carried or info.Opened then
@@ -292,45 +367,27 @@ function Boxes.open(player: Player, info: BoxInfo)
 	end
 	local localPosition = session.PlotCFrame:PointToObjectSpace(root.Position)
 	if not StoreLevels.isInside(store.Layout, localPosition, 2) then
-		Net.notify(player, "Info", "🏪 Carry the box inside your shop to open it!")
+		Net.notify(player, "Info", "🏪 Carry the box inside your shop first!")
 		return
 	end
-
-	info.Opened = true
-	detach(info)
-	session.Boxes[info.Model] = nil
-	info.Model:Destroy()
-
-	local contents = rollContents(player, info)
-	local data = PlayerData.get(player)
-	if data then
-		data.Stats.BoxesOpened += 1
-	end
-
-	-- Play the opening animation on the floor in front of the player.
 	local look = root.CFrame.LookVector
 	local flatLook = Vector3.new(look.X, 0, look.Z)
 	flatLook = if flatLook.Magnitude > 0.01 then flatLook.Unit else Vector3.new(0, 0, -1)
 	local floorY = session.PlotCFrame:PointToWorldSpace(Vector3.new(0, StoreLevels.FloorY, 0)).Y
 	local position = root.Position + flatLook * 3.4
 	position = Vector3.new(position.X, floorY + BoxVisual.Size.Y / 2, position.Z)
-	local openCFrame = CFrame.lookAt(position, Vector3.new(root.Position.X, position.Y, root.Position.Z))
+	openAt(player, info, CFrame.lookAt(position, Vector3.new(root.Position.X, position.Y, root.Position.Z)), nil)
+end
 
-	Net.effectAll("BoxOpen", {
-		CFrame = openCFrame,
-		Contents = contents,
-		OwnerId = player.UserId,
-		TapeColor = Products.Rarities[Items.product(contents[1].Key).Rarity].Color,
-	})
-
-	for _, entry in contents do
-		if Items.isRare(entry.Key) then
-			if data then
-				data.Stats.RaresFound += entry.Count
-			end
-			Net.notify(player, "Rare", "✨ " .. string.upper(Items.displayName(entry.Key)) .. "!")
-		end
+-- Unpack the carried box at a shelf. Returns the contents and the box's
+-- product id, or nil if the player isn't carrying anything.
+function Boxes.unpackCarried(player: Player, openCFrame: CFrame, flyTo: Vector3): ({ { Key: string, Count: number } }?, string?)
+	local session = Registry.session(player)
+	local info = session and session.Carried
+	if not info or info.Opened or not getRoot(player) then
+		return nil, nil
 	end
+	return openAt(player, info, openCFrame, flyTo), info.ProductId
 end
 
 -- Called when the player dies/respawns/leaves while carrying: put the box
@@ -357,6 +414,37 @@ function Boxes.dropCarried(player: Player)
 		info.Model:Destroy()
 		rollContents(player, info)
 	end
+end
+
+-- A box's contents straight into the stock room (used when the bay is full
+-- but a purchased delivery must still arrive).
+function Boxes.grantBox(session: Session, special: string?): { { Key: string, Count: number } }
+	local player = session.Player
+	local product, quantity = rollBox(player, special)
+	if not product then
+		return {}
+	end
+	local info = { ProductId = product.Id, Quantity = quantity, Special = special } :: any
+	local contents = rollContents(player, info)
+	for _, entry in contents do
+		if Items.isRare(entry.Key) then
+			Net.notify(player, "Rare", "✨ " .. string.upper(Items.displayName(entry.Key)) .. "!")
+		end
+	end
+	return contents
+end
+
+-- Golden Crate: drops from the sky onto the loading bay (or straight into
+-- the stock room if the bay is full).
+function Boxes.dropCrate(session: Session)
+	local free = Boxes.freeSpots(session)
+	if #free == 0 then
+		Boxes.grantBox(session, "Golden")
+		Net.notify(session.Player, "Info", "🎁 Bay full — your Golden Crate went to your stock room!")
+		return
+	end
+	local spot = free[1]
+	Boxes.spawn(session, spot, spotCFrame(session, spot) + Vector3.new(0, 70, 0), "Golden")
 end
 
 function Boxes.clear(session: Session)

@@ -9,6 +9,7 @@ local Remotes = require(Shared.Remotes)
 local StoreLevels = require(Shared.StoreLevels)
 local Upgrades = require(Shared.Upgrades)
 
+local Events = require(script.Parent.Events)
 local Net = require(script.Parent.Net)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
@@ -77,6 +78,7 @@ function UpgradeService.buy(player: Player, id: unknown): (boolean, string)
 	apply(player, id, level + 1)
 	PlayerData.markDirty(player)
 	Net.effectTo(player, "Upgrade", { Id = id, Level = level + 1 })
+	Events.UpgradeBought:Fire(player, id, level + 1)
 	return true, `{def.Name} upgraded!`
 end
 

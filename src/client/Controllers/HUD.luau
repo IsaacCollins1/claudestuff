@@ -1,17 +1,26 @@
 --!strict
--- Always-visible HUD: cash, delivery timer, UPGRADES / STOCK buttons and the
--- short objective hint at the bottom of the screen.
+-- The always-on simulator HUD:
+--   * top-left: cash (with a "+" to buy more) and store value
+--   * left: big chunky SHOP / UPGRADE / STOCK / TOP buttons
+--   * top-centre: delivery timer with a progress bar
+--   * top-right: active boosts and owned passes
+--   * bottom: a short hint when there's something to do
+-- Coins fly from sales in the world straight into the cash counter.
 
 local CollectionService = game:GetService("CollectionService")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
+local Monetization = require(Shared:WaitForChild("Monetization"))
 local Signal = require(Shared:WaitForChild("Signal"))
 local Upgrades = require(Shared:WaitForChild("Upgrades"))
 
+local SoundPlayer = require(script.Parent.SoundPlayer)
 local State = require(script.Parent.State)
 local UIKit = require(script.Parent.UIKit)
 local Window = require(script.Parent.Window)
@@ -23,178 +32,148 @@ local HUD = {}
 
 HUD.UpgradesPressed = Signal.new() :: Signal.Signal<>
 HUD.StockPressed = Signal.new() :: Signal.Signal<>
+HUD.ShopPressed = Signal.new() :: Signal.Signal<string?>
+HUD.LeadersPressed = Signal.new() :: Signal.Signal<>
 
+local screen: ScreenGui
 local cashPill: Frame
+local cashCoin: Frame
 local cashLabel: TextLabel
-local deliveryLabel: TextLabel
+local valueLabel: TextLabel
 local deliveryPill: Frame
+local deliveryLabel: TextLabel
+local deliveryBar: Frame
 local hintPill: Frame
 local hintLabel: TextLabel
 local stockBadge: Frame
 local stockBadgeLabel: TextLabel
 local upgradesAlert: Frame
-local upgradesButton: TextButton
+local boostsColumn: Frame
+local buttons: { [string]: UIKit.Chunky } = {}
 
 local displayedCash = 0
 local targetCash = 0
 local currentHint: string? = nil
+local tutorialActive = false
+local lastDeliveryInterval = Config.DeliveryIntervalMax
 
-local function bigButton(parent: Instance, icon: string, text: string, color: Color3, dark: Color3, onClick: () -> ()): TextButton
-	local button = UIKit.button(parent, {
-		Name = text,
-		Size = UDim2.fromOffset(92, 92),
-		BackgroundColor3 = color,
-		Text = "",
-	}, onClick)
-	UIKit.stroke(button, dark, 4)
-	UIKit.gradient(button, Color3.fromRGB(255, 255, 255), Color3.fromRGB(215, 215, 215))
-	UIKit.label(button, icon, { Size = UDim2.new(1, 0, 0.55, 0), Position = UDim2.fromScale(0, 0.06) })
-	local label = UIKit.label(button, text, { Size = UDim2.new(0.9, 0, 0.26, 0), Position = UDim2.fromScale(0.05, 0.64) })
-	UIKit.textStroke(label, dark, 2)
-	return button
-end
+local CASH_ICON_CENTER = Vector2.new(14 + 30, 10 + 30)
 
-local function badge(parent: Instance, color: Color3): (Frame, TextLabel)
-	local frame = UIKit.new("Frame", {
-		Name = "Badge",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(1, -6, 0, 6),
-		Size = UDim2.fromOffset(34, 34),
-		BackgroundColor3 = color,
-		Visible = false,
-		ZIndex = 5,
-	}, parent)
-	UIKit.corner(frame, UDim.new(1, 0))
-	UIKit.stroke(frame, Colors.White, 2)
-	local label = UIKit.label(frame, "", { ZIndex = 6 })
-	UIKit.padding(label, 4)
-	return frame, label
-end
+-- Cash + value ------------------------------------------------------------------
 
-function HUD.init(screen: ScreenGui)
-	-- Cash (top centre)
-	cashPill = UIKit.new("Frame", {
+local function buildCurrency()
+	cashPill = UIKit.pill(screen, {
 		Name = "Cash",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 6),
-		Size = UDim2.fromOffset(260, 62),
-		BackgroundColor3 = Colors.Dark,
-		BackgroundTransparency = 0.1,
-	}, screen)
-	UIKit.corner(cashPill, UDim.new(1, 0))
-	UIKit.stroke(cashPill, Colors.Gold, 3)
-	local coin = UIKit.new("Frame", {
-		Size = UDim2.fromOffset(50, 50),
-		Position = UDim2.fromOffset(6, 6),
-		BackgroundColor3 = Colors.Gold,
-	}, cashPill)
-	UIKit.corner(coin, UDim.new(1, 0))
-	UIKit.stroke(coin, Color3.fromRGB(255, 240, 170), 3)
-	UIKit.label(coin, "£", { TextColor3 = Color3.fromRGB(140, 90, 0), Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1) })
-	cashLabel = UIKit.label(cashPill, "£0", {
+		Position = UDim2.fromOffset(40, 16),
+		Size = UDim2.fromOffset(250, 52),
+	})
+	cashLabel = UIKit.title(cashPill, "£0", {
 		Name = "Amount",
-		Position = UDim2.fromOffset(64, 9),
-		Size = UDim2.new(1, -80, 1, -18),
+		Position = UDim2.fromOffset(34, 7),
+		Size = UDim2.new(1, -94, 1, -14),
 		TextXAlignment = Enum.TextXAlignment.Left,
-	})
-	UIKit.textStroke(cashLabel, Color3.fromRGB(80, 60, 0), 2)
+	}, Colors.Outline, 3)
+	cashCoin = UIKit.coin(screen, 60, { Position = UDim2.fromOffset(14, 10), ZIndex = 3 })
+	local plus = UIKit.chunky(cashPill, {
+		Name = "BuyCash",
+		Size = UDim2.fromOffset(46, 46),
+		Position = UDim2.new(1, -52, 0, 2),
+		Color = Colors.Green,
+		Text = "+",
+		Depth = 5,
+		ZIndex = 4,
+	}, function()
+		SoundPlayer.play("Click")
+		HUD.ShopPressed:Fire("Cash")
+	end)
+	plus.Button.Name = "BuyCash"
 
-	-- Delivery timer / boxes waiting
-	deliveryPill = UIKit.new("Frame", {
-		Name = "Delivery",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 74),
-		Size = UDim2.fromOffset(250, 34),
-		BackgroundColor3 = Colors.Dark,
-		BackgroundTransparency = 0.25,
-	}, screen)
-	UIKit.corner(deliveryPill, UDim.new(1, 0))
-	deliveryLabel = UIKit.label(deliveryPill, "🚚 Delivery on the way!", {
-		Size = UDim2.new(1, -20, 1, -8),
-		Position = UDim2.fromOffset(10, 4),
+	local valuePill = UIKit.pill(screen, {
+		Name = "Value",
+		Position = UDim2.fromOffset(40, 76),
+		Size = UDim2.fromOffset(200, 36),
+		BackgroundTransparency = 0.3,
 	})
+	valueLabel = UIKit.title(valuePill, "⭐ £0", {
+		Position = UDim2.fromOffset(16, 5),
+		Size = UDim2.new(1, -28, 1, -10),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(255, 225, 120),
+	}, Colors.Outline, 2)
+end
 
-	-- Big buttons on the left
-	local column = UIKit.new("Frame", {
-		Name = "Buttons",
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 14, 0.45, 0),
-		Size = UDim2.fromOffset(96, 210),
-		BackgroundTransparency = 1,
-	}, screen)
-	UIKit.new("UIListLayout", {
-		Padding = UDim.new(0, 14),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-		HorizontalAlignment = Enum.HorizontalAlignment.Center,
-	}, column)
-	upgradesButton = bigButton(column, "⬆️", "UPGRADES", Colors.Green, Colors.GreenDark, function()
+-- Button grid -------------------------------------------------------------------
+
+local function bigButton(name: string, icon: string, text: string, color: Color3, order: number, onClick: () -> ()): UIKit.Chunky
+	local column = (order - 1) % 2
+	local row = math.floor((order - 1) / 2)
+	local chunky = UIKit.chunky(screen, {
+		Name = name,
+		Size = UDim2.fromOffset(92, 92),
+		Position = UDim2.new(0, 14 + column * 104, 0.5, -110 + row * 108),
+		Color = color,
+		Icon = icon,
+		Text = text,
+		Radius = UDim.new(0, 18),
+		Depth = 8,
+	}, function()
+		SoundPlayer.play("Click")
+		onClick()
+	end)
+	buttons[name] = chunky
+	return chunky
+end
+
+local function buildButtons()
+	local shop = bigButton("Shop", "🛍️", "SHOP", Colors.Gold, 1, function()
+		HUD.ShopPressed:Fire(nil)
+	end)
+	UIKit.shine(shop.Face, UDim.new(0, 18), 2.5)
+	UIKit.wobble(shop.Button, 3)
+	local upgrades = bigButton("Upgrades", "⬆️", "UPGRADE", Colors.Green, 2, function()
 		HUD.UpgradesPressed:Fire()
 	end)
-	upgradesButton.LayoutOrder = 1
-	local stockButton = bigButton(column, "📦", "STOCK", Colors.Blue, Colors.BlueDark, function()
+	local stock = bigButton("Stock", "📦", "STOCK", Colors.Blue, 3, function()
 		HUD.StockPressed:Fire()
 	end)
-	stockButton.LayoutOrder = 2
-	stockBadge, stockBadgeLabel = badge(stockButton, Colors.Red)
-	upgradesAlert = badge(upgradesButton, Colors.Yellow)
-	local alertLabel = upgradesAlert:FindFirstChildOfClass("TextLabel")
-	if alertLabel then
-		alertLabel.Text = "!"
-		alertLabel.TextColor3 = Colors.Dark
-	end
-
-	-- Objective hint (bottom centre)
-	hintPill = UIKit.new("Frame", {
-		Name = "Hint",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -18),
-		Size = UDim2.fromOffset(380, 50),
-		BackgroundColor3 = Colors.Dark,
-		BackgroundTransparency = 0.15,
-		Visible = false,
-	}, screen)
-	UIKit.corner(hintPill, UDim.new(1, 0))
-	UIKit.stroke(hintPill, Colors.Yellow, 3)
-	hintLabel = UIKit.label(hintPill, "", { Size = UDim2.new(1, -28, 1, -12), Position = UDim2.fromOffset(14, 6) })
-
-	State.Changed:Connect(function(data, previous)
-		targetCash = data.Cash
-		if previous == nil then
-			displayedCash = data.Cash
-		elseif data.Cash > previous.Cash then
-			HUD.floatCash(data.Cash - previous.Cash)
-		end
-		HUD.refreshBadges()
+	bigButton("Leaders", "🏆", "TOP", Colors.Purple, 4, function()
+		HUD.LeadersPressed:Fire()
 	end)
-	if State.Data then
-		targetCash = State.Data.Cash
-		displayedCash = targetCash
-	end
+	stockBadge, stockBadgeLabel = UIKit.badge(stock.Button, Colors.Red, "0")
+	upgradesAlert = UIKit.badge(upgrades.Button, Colors.Yellow, "!")
+end
 
-	-- Smooth count-up for cash.
-	RunService.RenderStepped:Connect(function(dt: number)
-		if math.abs(targetCash - displayedCash) < 0.5 then
-			displayedCash = targetCash
-		else
-			displayedCash += (targetCash - displayedCash) * math.min(1, dt * 9)
-		end
-		cashLabel.Text = Format.money(math.floor(displayedCash + 0.5))
-	end)
+-- Delivery timer -------------------------------------------------------------------
 
-	-- Delivery pill refresh.
-	task.spawn(function()
-		while true do
-			HUD.refreshDelivery()
-			task.wait(0.25)
-		end
-	end)
+local function buildDelivery()
+	deliveryPill = UIKit.pill(screen, {
+		Name = "Delivery",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 12),
+		Size = UDim2.fromOffset(290, 46),
+	})
+	deliveryLabel = UIKit.title(deliveryPill, "🚚 DELIVERY SOON", {
+		Size = UDim2.new(1, -30, 0, 26),
+		Position = UDim2.fromOffset(15, 5),
+	}, Colors.Outline, 2)
+	local track = UIKit.new("Frame", {
+		Size = UDim2.new(1, -40, 0, 7),
+		Position = UDim2.new(0, 20, 1, -12),
+		BackgroundColor3 = Color3.fromRGB(12, 12, 20),
+	}, deliveryPill)
+	UIKit.corner(track, UDim.new(1, 0))
+	deliveryBar = UIKit.new("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Colors.Orange,
+	}, track)
+	UIKit.corner(deliveryBar, UDim.new(1, 0))
 end
 
 function HUD.refreshDelivery()
-	-- Menus get the screen to themselves (matters on phones).
 	local menuOpen = Window.isAnyOpen()
 	deliveryPill.Visible = not menuOpen
-	hintPill.Visible = currentHint ~= nil and not menuOpen
+	hintPill.Visible = currentHint ~= nil and not menuOpen and not tutorialActive
+
 	local waiting = 0
 	for _, box in CollectionService:GetTagged("DeliveryBox") do
 		local root = box:FindFirstChild("Box")
@@ -202,20 +181,123 @@ function HUD.refreshDelivery()
 			waiting += 1
 		end
 	end
-	if waiting > 0 then
-		deliveryLabel.Text = `📦 {waiting} box{if waiting == 1 then "" else "es"} waiting!`
-		deliveryLabel.TextColor3 = Colors.Yellow
-		return
-	end
-	deliveryLabel.TextColor3 = Colors.White
 	local nextAt = player:GetAttribute("NextDeliveryAt")
-	if type(nextAt) == "number" then
-		local remaining = math.max(0, math.ceil(nextAt - workspace:GetServerTimeNow()))
-		deliveryLabel.Text = if remaining > 0 then `🚚 Next delivery {remaining}s` else "🚚 Delivery arriving!"
+	local remaining = if type(nextAt) == "number" then math.max(0, nextAt - workspace:GetServerTimeNow()) else 0
+	if remaining > lastDeliveryInterval then
+		lastDeliveryInterval = remaining
+	end
+	deliveryBar.Size = UDim2.fromScale(1 - remaining / math.max(lastDeliveryInterval, 1), 1)
+	if waiting > 0 then
+		deliveryLabel.Text = `📦 {waiting} BOX{if waiting == 1 then "" else "ES"} WAITING!`
+		deliveryLabel.TextColor3 = Colors.Yellow
+	elseif remaining > 0.5 then
+		deliveryLabel.Text = `🚚 NEXT DELIVERY {math.ceil(remaining)}s`
+		deliveryLabel.TextColor3 = Colors.White
 	else
-		deliveryLabel.Text = "🚚 Delivery on the way!"
+		deliveryLabel.Text = "🚚 DELIVERY ARRIVING!"
+		deliveryLabel.TextColor3 = Colors.Orange
+		lastDeliveryInterval = Config.DeliveryIntervalMin
 	end
 end
+
+-- Boosts / passes -----------------------------------------------------------------
+
+local function buildBoosts()
+	boostsColumn = UIKit.new("Frame", {
+		Name = "Boosts",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -14, 0, 14),
+		Size = UDim2.fromOffset(210, 260),
+		BackgroundTransparency = 1,
+	}, screen)
+	UIKit.new("UIListLayout", {
+		Padding = UDim.new(0, 8),
+		HorizontalAlignment = Enum.HorizontalAlignment.Right,
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, boostsColumn)
+end
+
+local function refreshBoosts()
+	for _, child in boostsColumn:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	local order = 0
+	for _, key in Monetization.ProductOrder do
+		local product = Monetization.Products[key]
+		local remaining = State.boostRemaining(key)
+		if product.Kind == "Boost" and remaining > 0 then
+			order += 1
+			local chip = UIKit.pill(boostsColumn, {
+				Name = key,
+				Size = UDim2.fromOffset(200, 40),
+				BackgroundColor3 = UIKit.darken(product.Color, 0.35),
+				LayoutOrder = order,
+			})
+			local minutes = math.floor(remaining / 60)
+			UIKit.title(chip, `{product.Icon} {minutes}:{string.format("%02d", math.floor(remaining % 60))}`, {
+				Size = UDim2.new(1, -20, 1, -10),
+				Position = UDim2.fromOffset(10, 5),
+			}, Colors.Outline, 2)
+		end
+	end
+	local owned = {}
+	for _, key in Monetization.PassOrder do
+		if State.hasPass(key) then
+			table.insert(owned, Monetization.Passes[key].Icon)
+		end
+	end
+	if #owned > 0 then
+		order += 1
+		local chip = UIKit.pill(boostsColumn, {
+			Name = "Passes",
+			Size = UDim2.fromOffset(40 + #owned * 34, 40),
+			LayoutOrder = order,
+		})
+		UIKit.label(chip, table.concat(owned, " "), {
+			Size = UDim2.new(1, -16, 1, -10),
+			Position = UDim2.fromOffset(8, 5),
+		})
+	end
+end
+
+-- Hint -----------------------------------------------------------------------------
+
+local function buildHint()
+	hintPill = UIKit.pill(screen, {
+		Name = "Hint",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -20),
+		Size = UDim2.fromOffset(460, 56),
+		Visible = false,
+	})
+	UIKit.stroke(hintPill, Colors.Yellow, 3)
+	hintLabel = UIKit.title(hintPill, "", {
+		Size = UDim2.new(1, -36, 1, -16),
+		Position = UDim2.fromOffset(18, 8),
+	}, Colors.Outline, 2)
+end
+
+function HUD.setHint(text: string?)
+	if text == currentHint then
+		return
+	end
+	currentHint = text
+	if text then
+		hintLabel.Text = text
+		hintPill.Visible = not Window.isAnyOpen() and not tutorialActive
+		UIKit.pop(hintPill, 0.12)
+	else
+		hintPill.Visible = false
+	end
+end
+
+function HUD.setTutorialActive(active: boolean)
+	tutorialActive = active
+end
+
+-- Badges -----------------------------------------------------------------------------
 
 function HUD.refreshBadges()
 	local total = State.inventoryTotal()
@@ -232,47 +314,138 @@ function HUD.refreshBadges()
 				break
 			end
 		end
+		valueLabel.Text = "⭐ " .. Format.money(data.StoreValue)
 	end
 	if affordable and not upgradesAlert.Visible then
-		UIKit.pop(upgradesButton, 0.2)
+		UIKit.pop(buttons.Upgrades.Button, 0.2)
 	end
 	upgradesAlert.Visible = affordable
 end
 
--- "+£24" flying up next to the cash counter.
-function HUD.floatCash(amount: number)
-	UIKit.pop(cashPill, 0.08)
-	local label = UIKit.label(cashPill.Parent, "+" .. Format.money(amount), {
+function HUD.pulseUpgrades()
+	UIKit.pop(buttons.Upgrades.Button, 0.18)
+end
+
+function HUD.button(name: string): GuiButton?
+	local chunky = buttons[name]
+	return chunky and chunky.Button
+end
+
+-- Coins flying into the counter ------------------------------------------------------------
+
+local function uiScale(): number
+	local scale = screen:FindFirstChildOfClass("UIScale")
+	return if scale then scale.Scale else 1
+end
+
+-- World position -> position in the (unscaled) HUD coordinate space.
+function HUD.worldToGui(position: Vector3): Vector2?
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return nil
+	end
+	local point, onScreen = camera:WorldToViewportPoint(position)
+	if not onScreen then
+		return nil
+	end
+	local inset = GuiService:GetGuiInset()
+	local s = uiScale()
+	return Vector2.new(point.X / s, (point.Y - inset.Y) / s)
+end
+
+function HUD.flyCoinsFrom(start: Vector2, amount: number)
+	local count = math.clamp(math.floor(math.log10(math.max(amount, 1)) * 2) + 2, 3, 10)
+	for index = 1, count do
+		task.delay((index - 1) * 0.05, function()
+			local coin = UIKit.coin(screen, 30, {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(start.X, start.Y),
+				ZIndex = 50,
+			})
+			local scatter = start + Vector2.new(math.random(-60, 60), math.random(-70, -20))
+			UIKit.tween(coin, 0.25, { Position = UDim2.fromOffset(scatter.X, scatter.Y) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+			task.wait(0.25)
+			UIKit.tween(coin, 0.45, {
+				Position = UDim2.fromOffset(CASH_ICON_CENTER.X, CASH_ICON_CENTER.Y),
+				Size = UDim2.fromOffset(20, 20),
+			}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			task.wait(0.45)
+			coin:Destroy()
+			UIKit.pop(cashCoin, 0.25)
+			SoundPlayer.play("Coin", 1 + index * 0.05, nil, 0.03)
+		end)
+	end
+end
+
+function HUD.flyCoins(worldPosition: Vector3, amount: number)
+	local start = HUD.worldToGui(worldPosition)
+	if start then
+		HUD.flyCoinsFrom(start, amount)
+	end
+end
+
+-- "+£24" next to the counter.
+local function floatCash(amount: number)
+	UIKit.pop(cashPill, 0.06)
+	local label = UIKit.title(screen, "+" .. Format.money(amount), {
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0.5, 136, 0, 38),
-		Size = UDim2.fromOffset(160, 34),
+		Position = UDim2.fromOffset(300, 42),
+		Size = UDim2.fromOffset(170, 34),
 		TextColor3 = Colors.Green,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		ZIndex = 10,
-	})
-	UIKit.textStroke(label, Colors.Dark, 2)
-	UIKit.tween(label, 0.9, { Position = UDim2.new(0.5, 136, 0, 4), TextTransparency = 1 })
-	task.delay(0.95, function()
+		ZIndex = 30,
+	}, Colors.Outline, 3)
+	UIKit.tween(label, 1, { Position = UDim2.fromOffset(300, 8), TextTransparency = 1 })
+	task.delay(1.05, function()
 		label:Destroy()
 	end)
 end
 
-function HUD.setHint(text: string?)
-	if text == currentHint then
-		return
-	end
-	currentHint = text
-	if text then
-		hintLabel.Text = text
-		hintPill.Visible = not Window.isAnyOpen()
-		UIKit.pop(hintPill, 0.12)
-	else
-		hintPill.Visible = false
-	end
-end
+-- Init -------------------------------------------------------------------------------
 
-function HUD.pulseUpgrades()
-	UIKit.pop(upgradesButton, 0.15)
+function HUD.init(gui: ScreenGui)
+	screen = gui
+	buildCurrency()
+	buildButtons()
+	buildDelivery()
+	buildBoosts()
+	buildHint()
+
+	State.Changed:Connect(function(data, previous)
+		targetCash = data.Cash
+		if previous == nil then
+			displayedCash = data.Cash
+		elseif data.Cash > previous.Cash then
+			floatCash(data.Cash - previous.Cash)
+		end
+		HUD.refreshBadges()
+		refreshBoosts()
+	end)
+	if State.Data then
+		targetCash = State.Data.Cash
+		displayedCash = targetCash
+	end
+
+	RunService.RenderStepped:Connect(function(dt: number)
+		if math.abs(targetCash - displayedCash) < 0.5 then
+			displayedCash = targetCash
+		else
+			displayedCash += (targetCash - displayedCash) * math.min(1, dt * 8)
+		end
+		cashLabel.Text = Format.money(math.floor(displayedCash + 0.5))
+	end)
+
+	task.spawn(function()
+		local ticks = 0
+		while true do
+			HUD.refreshDelivery()
+			ticks += 1
+			if ticks % 4 == 0 then
+				refreshBoosts()
+			end
+			task.wait(0.25)
+		end
+	end)
 end
 
 return HUD

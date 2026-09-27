@@ -39,6 +39,11 @@ local Sounds: { [string]: SoundDef } = {
 	Delivery = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Speed = 0.7, Fallback = JUMP },
 	Rare = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 2.2, Fallback = JUMP },
 	Sad = { Id = GET_UP, Volume = 0.35, Speed = 0.7 },
+	-- Simulator UI
+	Coin = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.25, Speed = 2.4, Fallback = JUMP },
+	Purchase = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 1.25, Fallback = JUMP },
+	StepDone = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 1.6, Fallback = JUMP },
+	Whoosh = { Id = "rbxasset://sounds/swoosh.wav", Volume = 0.4, Speed = 1.3, Fallback = JUMP },
 }
 
 return Sounds

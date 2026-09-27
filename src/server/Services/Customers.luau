@@ -11,8 +11,10 @@ local StoreLevels = require(Shared.StoreLevels)
 local Upgrades = require(Shared.Upgrades)
 
 local NpcBuilder = require(script.Parent.Parent.Builders.NpcBuilder)
+local Events = require(script.Parent.Events)
 local Net = require(script.Parent.Net)
 local NpcMotion = require(script.Parent.NpcMotion)
+local Perks = require(script.Parent.Perks)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
 local Shelves = require(script.Parent.Shelves)
@@ -117,15 +119,19 @@ local function checkout(customer: Customer)
 		rare = rare or Items.isRare(key)
 	end
 	local owner = store.Owner
+	local multiplier = Perks.cashMultiplier(owner)
+	total *= multiplier
 	local data = PlayerData.get(owner)
 	if data then
 		data.Stats.ItemsSold += #customer.Items
 		PlayerData.addCash(owner, total)
+		Events.Sale:Fire(owner, total, #customer.Items)
 	end
 	Net.effectAll("Sale", {
 		Position = store.Register.Position + Vector3.new(0, 2.2, 0),
 		Amount = total,
 		Rare = rare,
+		Multiplier = multiplier,
 		OwnerId = owner.UserId,
 	})
 	for _, model in customer.Models do
@@ -264,11 +270,12 @@ function Customers.start(store: Store)
 		while store.Alive do
 			local data = PlayerData.get(store.Owner)
 			local rateLevel = if data then data.Upgrades.CustomerRate else 0
-			local maxCustomers = Upgrades.maxCustomers(rateLevel, store.Level)
+			local maxCustomers = Upgrades.maxCustomers(rateLevel, store.Level) + Perks.extraCustomers(store.Owner)
 			if store.CustomerCount < maxCustomers and Shelves.available(store) > 0 then
 				Customers.spawn(store)
 			end
-			task.wait(Upgrades.customerInterval(rateLevel) * rng:NextNumber(0.75, 1.25))
+			local interval = Upgrades.customerInterval(rateLevel) * Perks.customerIntervalMultiplier(store.Owner)
+			task.wait(interval * rng:NextNumber(0.75, 1.25))
 		end
 	end)
 end

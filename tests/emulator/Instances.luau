@@ -930,6 +930,32 @@ Instances.method("Model", "ScaleTo", function(self, scale)
 	end
 	st.scale = scale
 end)
+Instances.method("Model", "GetBoundingBox", function(self)
+	local minV, maxV = nil, nil
+	for _, d in descendants(self) do
+		if states[d].class.IsA.BasePart then
+			local cf = rawCFrame(d)
+			local half = d.Size / 2
+			for _, sx in { -1, 1 } do
+				for _, sy in { -1, 1 } do
+					for _, sz in { -1, 1 } do
+						local corner = cf:PointToWorldSpace(Vector3.new(half.X * sx, half.Y * sy, half.Z * sz))
+						minV = if minV then minV:Min(corner) else corner
+						maxV = if maxV then maxV:Max(corner) else corner
+					end
+				end
+			end
+		end
+	end
+	if not minV then
+		return CFrame.new(), Vector3.zero
+	end
+	return CFrame.new((minV + maxV) / 2), maxV - minV
+end)
+Instances.method("Model", "GetExtentsSize", function(self)
+	local _, size = self:GetBoundingBox()
+	return size
+end)
 Instances.method("BasePart", "SetNetworkOwner", function(self, player)
 	local st = states[self]
 	if not st.inGame then

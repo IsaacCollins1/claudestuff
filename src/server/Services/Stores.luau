@@ -13,6 +13,7 @@ local StoreBuilder = require(script.Parent.Parent.Builders.StoreBuilder)
 local WorldBuilder = require(script.Parent.Parent.Builders.WorldBuilder)
 local Boxes = require(script.Parent.Boxes)
 local Customers = require(script.Parent.Customers)
+local Perks = require(script.Parent.Perks)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
 local Shelves = require(script.Parent.Shelves)
@@ -98,7 +99,7 @@ function Stores.open(session: Session): Store?
 		return nil
 	end
 	local level = math.clamp(data.Upgrades.StoreSize, 1, StoreLevels.MaxLevel)
-	local built = StoreBuilder.build(session.PlotCFrame, level, session.Accent, player.Name, player.UserId, session.PlotModel)
+	local built = StoreBuilder.build(session.PlotCFrame, level, session.Accent, player.Name, player.UserId, session.PlotModel, Perks.has(player, "VIP"))
 	local store: Store = {
 		Session = session,
 		Owner = player,

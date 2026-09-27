@@ -17,14 +17,28 @@ export type Box = {
 	FlapRight: BasePart?,
 }
 
-function BoxVisual.build(tapeColor: Color3, withFlaps: boolean?): Box
+function BoxVisual.build(tapeColor: Color3, withFlaps: boolean?, golden: boolean?): Box
 	local size = BoxVisual.Size
 	local model = Instance.new("Model")
 	model.Name = "DeliveryBox"
 	local origin = CFrame.new()
 
-	local root = Build.part(model, "Box", size, origin, BoxVisual.Cardboard)
-	local darker = BoxVisual.Cardboard:Lerp(Color3.new(0, 0, 0), 0.12)
+	local bodyColor = if golden then Color3.fromRGB(255, 205, 60) else BoxVisual.Cardboard
+	local root = Build.part(model, "Box", size, origin, bodyColor)
+	if golden then
+		root.Reflectance = 0.2
+		local sparkles = Instance.new("ParticleEmitter")
+		sparkles.Name = "Sparkles"
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(255, 240, 150))
+		sparkles.LightEmission = 1
+		sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+		sparkles.Lifetime = NumberRange.new(0.6, 1.1)
+		sparkles.Rate = 8
+		sparkles.Speed = NumberRange.new(1, 3)
+		sparkles.SpreadAngle = Vector2.new(180, 180)
+		sparkles.Parent = root
+	end
+	local darker = bodyColor:Lerp(Color3.new(0, 0, 0), 0.12)
 
 	-- Tape across the top and down the front/back, plus a "fragile" style label.
 	Build.part(model, "TapeTop", Vector3.new(0.55, 0.06, size.Z + 0.02), origin * CFrame.new(0, size.Y / 2 + 0.02, 0), tapeColor)

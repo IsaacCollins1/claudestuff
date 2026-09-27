@@ -1,6 +1,8 @@
 --!strict
 -- Builds the little 3D product models seen on shelves, in customers' baskets
--- and popping out of opened boxes. Everything is made from normal Parts.
+-- and popping out of opened boxes. Built from Parts (plus a few sphere
+-- meshes for rounded shapes); a mesh model put in
+-- ReplicatedStorage.CustomModels.Products replaces the Part version (see ModelLibrary).
 --
 -- Models are built around the origin with their base at Y = 0 and their
 -- "front" facing -Z, so `model:PivotTo(slotCFrame)` places them on a shelf.
@@ -9,6 +11,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local Build = require(script.Parent.Build)
 local Items = require(script.Parent.Items)
+local ModelLibrary = require(script.Parent.ModelLibrary)
 local Products = require(script.Parent.Products)
 local Variants = require(script.Parent.Variants)
 
@@ -19,28 +22,37 @@ ProductVisuals.RainbowTag = "RainbowItem"
 local SILVER = Color3.fromRGB(205, 208, 215)
 local DARK = Color3.fromRGB(30, 30, 36)
 
+-- kind: nil = block, "cylinder" = upright cylinder (size is height, diameter, diameter),
+-- "round" = ellipsoid filling the size (a block with a sphere mesh).
 type Adder = (name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?) -> Part
 
 local shapes: { [string]: (add: Adder, product: Products.Product) -> () } = {}
 
 shapes.Bottle = function(add, p)
-	local body = add("Body", Vector3.new(0.95, 0.5, 0.5), CFrame.new(0, 0.475, 0), p.Color, "cylinder")
+	local body = add("Body", Vector3.new(0.85, 0.5, 0.5), CFrame.new(0, 0.425, 0), p.Color, "cylinder")
 	body.Transparency = 0.15
-	add("Label", Vector3.new(0.3, 0.52, 0.52), CFrame.new(0, 0.45, 0), p.Accent, "cylinder")
-	add("Neck", Vector3.new(0.18, 0.26, 0.26), CFrame.new(0, 1.03, 0), p.Color, "cylinder")
-	add("Cap", Vector3.new(0.1, 0.3, 0.3), CFrame.new(0, 1.16, 0), p.Accent, "cylinder")
+	local shoulder = add("Shoulder", Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 0.85, 0), p.Color, "round")
+	shoulder.Transparency = 0.15
+	add("Label", Vector3.new(0.3, 0.52, 0.52), CFrame.new(0, 0.42, 0), p.Accent, "cylinder")
+	add("Neck", Vector3.new(0.18, 0.24, 0.24), CFrame.new(0, 1.12, 0), p.Color, "cylinder")
+	add("Cap", Vector3.new(0.12, 0.29, 0.29), CFrame.new(0, 1.25, 0), p.Accent, "cylinder")
 end
 
 shapes.Can = function(add, p)
-	add("Body", Vector3.new(0.85, 0.5, 0.5), CFrame.new(0, 0.425, 0), p.Color, "cylinder")
+	add("Body", Vector3.new(0.8, 0.5, 0.5), CFrame.new(0, 0.44, 0), p.Color, "cylinder")
 	add("Band", Vector3.new(0.25, 0.52, 0.52), CFrame.new(0, 0.45, 0), p.Accent, "cylinder")
-	add("Top", Vector3.new(0.05, 0.44, 0.44), CFrame.new(0, 0.87, 0), SILVER, "cylinder")
+	add("Bottom", Vector3.new(0.05, 0.44, 0.44), CFrame.new(0, 0.025, 0), SILVER, "cylinder")
+	add("Top", Vector3.new(0.06, 0.44, 0.44), CFrame.new(0, 0.87, 0), SILVER, "cylinder")
+	add("Tab", Vector3.new(0.14, 0.03, 0.09), CFrame.new(0, 0.91, -0.08), SILVER)
 end
 
 shapes.Bag = function(add, p)
-	add("Body", Vector3.new(0.7, 0.9, 0.32), CFrame.new(0, 0.45, 0), p.Color)
-	add("Band", Vector3.new(0.72, 0.28, 0.34), CFrame.new(0, 0.42, 0), p.Accent)
-	add("Crimp", Vector3.new(0.74, 0.08, 0.2), CFrame.new(0, 0.93, 0), p.Accent)
+	-- A puffy crisp packet: flat edges with a pillowy middle and crimped ends.
+	add("Body", Vector3.new(0.7, 0.84, 0.16), CFrame.new(0, 0.48, 0), p.Color)
+	add("Puff", Vector3.new(0.68, 0.78, 0.38), CFrame.new(0, 0.48, 0), p.Color, "round")
+	add("Band", Vector3.new(0.5, 0.26, 0.05), CFrame.new(0, 0.46, -0.17), p.Accent, "round")
+	add("CrimpTop", Vector3.new(0.74, 0.08, 0.12), CFrame.new(0, 0.93, 0), p.Accent)
+	add("CrimpBottom", Vector3.new(0.74, 0.08, 0.12), CFrame.new(0, 0.04, 0), p.Accent)
 end
 
 shapes.Bar = function(add, p)
@@ -131,6 +143,35 @@ local function addSparkles(part: BasePart, color: Color3, rate: number)
 	emitter.Parent = part
 end
 
+local warned: { [string]: boolean } = {}
+
+-- Parts you can see (custom models often carry invisible hitboxes).
+local function visibleParts(model: Model): { BasePart }
+	local parts = {}
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") and descendant.Transparency < 0.99 then
+			table.insert(parts, descendant)
+		end
+	end
+	return parts
+end
+
+-- Golden/Rainbow items are recoloured, so drop textures that would hide it.
+local function stripTextures(model: Model)
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("SurfaceAppearance") or descendant:IsA("Decal") then
+			descendant:Destroy()
+		elseif descendant:IsA("MeshPart") then
+			local meshPart = descendant
+			pcall(function()
+				meshPart.TextureID = ""
+			end)
+		elseif descendant:IsA("SpecialMesh") then
+			descendant.TextureId = ""
+		end
+	end
+end
+
 -- Build the model for an item key (e.g. "Cola" or "Cola:Rainbow").
 function ProductVisuals.build(key: string, extraScale: number?): Model
 	local product = Items.product(key)
@@ -141,13 +182,15 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 	model.Name = key
 	model:SetAttribute("ItemKey", key)
 
-	local parts: { Part } = {}
+	local parts: { BasePart } = {}
 	local function add(name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?): Part
 		local scaledCFrame = CFrame.new(cframe.Position * scale) * cframe.Rotation
 		local part
 		if kind == "cylinder" then
 			-- Sizes for cylinders are given as (height, diameter, diameter) standing upright.
 			part = Build.cylinder(nil, name, size.X * scale, size.Y * scale, scaledCFrame, color)
+		elseif kind == "round" then
+			part = Build.ellipsoid(nil, name, size * scale, scaledCFrame, color)
 		else
 			part = Build.part(nil, name, size * scale, scaledCFrame, color)
 		end
@@ -163,6 +206,32 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 
 	local builder = shapes[product.Shape] or shapes.Cereal
 	builder(add, product)
+
+	-- Swap in a custom mesh model if the developer added one.
+	local template = ModelLibrary.template("Products", product.Id)
+	if template then
+		local ok, custom = pcall(function(): Model
+			return ModelLibrary.fitted(template, model:GetExtentsSize())
+		end)
+		if ok then
+			model:Destroy()
+			model = custom
+			model.Name = key
+			model:SetAttribute("ItemKey", key)
+			ModelLibrary.makeDecor(model)
+			parts = visibleParts(model)
+			if variant.Id == "Golden" or variant.Id == "Rainbow" then
+				stripTextures(model)
+			end
+		elseif not warned[product.Id] then
+			warned[product.Id] = true
+			warn(`[FillTheStore] Couldn't use CustomModels.Products.{product.Id}: {custom}`)
+		end
+	end
+	if #parts == 0 then
+		model.WorldPivot = CFrame.new()
+		return model
+	end
 
 	if variant.Id == "Golden" then
 		for index, part in parts do

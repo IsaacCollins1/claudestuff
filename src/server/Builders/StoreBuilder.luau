@@ -1,6 +1,7 @@
 --!strict
 -- Builds a player's shop for a given store level out of plain Parts:
 -- floor, walls with windows and a door, sign, awning, checkout and shelves.
+-- VIP owners get a golden trim, a crown on the sign and a red carpet.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +12,7 @@ local Config = require(Shared.Config)
 local StoreLevels = require(Shared.StoreLevels)
 
 local NpcBuilder = require(script.Parent.NpcBuilder)
+local PropBuilder = require(script.Parent.PropBuilder)
 
 local StoreBuilder = {}
 
@@ -38,6 +40,7 @@ local WHITE = Color3.fromRGB(255, 255, 255)
 local WALL = Color3.fromRGB(250, 246, 238)
 local GLASS = Color3.fromRGB(170, 220, 255)
 local DARK = Color3.fromRGB(45, 48, 60)
+local GOLD = Color3.fromRGB(255, 196, 45)
 
 local function lighten(color: Color3, amount: number): Color3
 	return color:Lerp(WHITE, amount)
@@ -121,12 +124,14 @@ local function buildShelf(parent: Instance, index: number, worldCFrame: CFrame, 
 	}
 end
 
-function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, ownerName: string, ownerUserId: number, parent: Instance): Built
+function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, ownerName: string, ownerUserId: number, parent: Instance, vip: boolean?): Built
 	local layout = StoreLevels.getLayout(level)
 	local model = Instance.new("Model")
 	model.Name = "Store"
 	model:SetAttribute("OwnerUserId", ownerUserId)
 	model:SetAttribute("Level", level)
+	model:SetAttribute("Vip", vip == true)
+	local trim = if vip then GOLD else accent
 
 	local function at(x: number, y: number, z: number): CFrame
 		return plotCFrame * CFrame.new(x, y, z)
@@ -181,10 +186,26 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 
 	-- Accent trim along the top of every wall.
 	local trimY = wallH + 0.4
-	Build.part(walls, "TrimBack", Vector3.new(w + 2.6, 0.8, 1.6), at(0, trimY, backZ + t / 2), accent)
-	Build.part(walls, "TrimFront", Vector3.new(w + 2.6, 0.8, 1.6), at(0, trimY, frontCenterZ), accent)
-	Build.part(walls, "TrimLeft", Vector3.new(1.6, 0.8, d + 2.6), at(-halfW - t / 2, trimY, frontZ + d / 2), accent)
-	Build.part(walls, "TrimRight", Vector3.new(1.6, 0.8, d + 2.6), at(halfW + t / 2, trimY, frontZ + d / 2), accent)
+	for _, part in {
+		Build.part(walls, "TrimBack", Vector3.new(w + 2.6, 0.8, 1.6), at(0, trimY, backZ + t / 2), trim),
+		Build.part(walls, "TrimFront", Vector3.new(w + 2.6, 0.8, 1.6), at(0, trimY, frontCenterZ), trim),
+		Build.part(walls, "TrimLeft", Vector3.new(1.6, 0.8, d + 2.6), at(-halfW - t / 2, trimY, frontZ + d / 2), trim),
+		Build.part(walls, "TrimRight", Vector3.new(1.6, 0.8, d + 2.6), at(halfW + t / 2, trimY, frontZ + d / 2), trim),
+	} do
+		part.Reflectance = if vip then 0.2 else 0
+	end
+	-- Corner posts and a skirting stripe give the walls some shape.
+	-- (Flush with the inside of the walls, sticking out a little on the outside.)
+	for _, sideX in { -1, 1 } do
+		for _, corner in { { frontCenterZ, -1 }, { backZ + t / 2, 1 } } do
+			local x = sideX * (halfW + t / 2 + 0.25)
+			Build.part(walls, "CornerPost", Vector3.new(t + 0.5, wallH, t + 0.5), at(x, wallH / 2, corner[1] + corner[2] * 0.25), lighten(trim, 0.35))
+		end
+	end
+	Build.decor(Build.part(walls, "SkirtBack", Vector3.new(w + 2 * t + 0.1, 1, t + 0.1), at(0, 0.5, backZ + t / 2), darken(accent, 0.1)))
+	for _, side in { -1, 1 } do
+		Build.decor(Build.part(walls, "Skirt", Vector3.new(t + 0.1, 1, d + 2 * t + 0.1), at(side * (halfW + t / 2), 0.5, frontZ + d / 2), darken(accent, 0.1)))
+	end
 	walls.Parent = model
 
 	-- Striped awning above the windows.
@@ -208,8 +229,49 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	-- Big sign on top of the front wall: "ISAAC'S STORE / Value: £1,250"
 	local signCFrame = plotCFrame * layout.SignCFrame
 	local signWidth = math.min(w - 4, 24)
-	local signBack = Build.part(model, "SignBack", Vector3.new(signWidth + 0.8, 5.3, 0.6), signCFrame * CFrame.new(0, 0, 0.35), accent)
+	local signBack = Build.part(model, "SignBack", Vector3.new(signWidth + 0.8, 5.3, 0.6), signCFrame * CFrame.new(0, 0, 0.35), trim)
 	signBack.CastShadow = false
+	signBack.Reflectance = if vip then 0.2 else 0
+	-- Marquee light bulbs around the sign.
+	local bulbs = Instance.new("Model")
+	bulbs.Name = "SignLights"
+	local bulbColors = { Color3.fromRGB(255, 244, 200), Color3.fromRGB(255, 215, 90) }
+	local count = math.floor((signWidth + 0.4) / 1.3)
+	for index = 0, count do
+		local x = -signWidth / 2 - 0.2 + index * (signWidth + 0.4) / count
+		for _, y in { -2.45, 2.45 } do
+			local bulb = Build.ball(bulbs, "Bulb", 0.34, signCFrame * CFrame.new(x, y, -0.02), bulbColors[index % 2 + 1], Enum.Material.Neon)
+			Build.decor(bulb)
+			bulb.CastShadow = false
+		end
+	end
+	for _, x in { -signWidth / 2 - 0.2, signWidth / 2 + 0.2 } do
+		for y = -1.2, 1.21, 1.2 do
+			local bulb = Build.ball(bulbs, "Bulb", 0.34, signCFrame * CFrame.new(x, y, -0.02), bulbColors[1], Enum.Material.Neon)
+			Build.decor(bulb)
+			bulb.CastShadow = false
+		end
+	end
+	bulbs.Parent = model
+	if vip then
+		-- A golden crown on top of the sign.
+		local crown = Instance.new("Model")
+		crown.Name = "VipCrown"
+		local crownBase = signCFrame * CFrame.new(0, 3.3, 0.35)
+		Build.part(crown, "Band", Vector3.new(3.6, 0.8, 0.8), crownBase, GOLD)
+		for _, x in { -1.4, 0, 1.4 } do
+			local spike = Build.part(crown, "Spike", Vector3.new(0.8, 0.8, 0.5), crownBase * CFrame.new(x, 0.75, 0) * CFrame.Angles(0, 0, math.rad(45)), GOLD)
+			spike.Reflectance = 0.3
+			Build.ball(crown, "Gem", 0.45, crownBase * CFrame.new(x, 1.35, 0), Color3.fromRGB(255, 60, 90), Enum.Material.Neon)
+		end
+		for _, part in crown:GetDescendants() do
+			if part:IsA("BasePart") then
+				Build.decor(part)
+				part.Reflectance = math.max(part.Reflectance, 0.2)
+			end
+		end
+		crown.Parent = model
+	end
 	local sign = Build.part(model, "Sign", Vector3.new(signWidth, 4.5, 0.4), signCFrame, WHITE)
 	local signGui = Instance.new("SurfaceGui")
 	signGui.Face = Enum.NormalId.Front
@@ -229,8 +291,8 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	-- Floating name above the shop so it can be read from far away.
 	local nameBoard = Build.billboard(sign, UDim2.fromScale(20, 3), Vector3.new(0, 5.5, 0), 350)
 	nameBoard.Name = "OwnerBillboard"
-	local floating = Build.textLabel(nameBoard, "🏪 " .. ownerName, WHITE)
-	Build.stroke(floating, darken(accent, 0.35), 3)
+	local floating = Build.textLabel(nameBoard, (if vip then "👑 " else "🏪 ") .. ownerName, if vip then GOLD else WHITE)
+	Build.stroke(floating, darken(trim, 0.45), 3)
 
 	-- Inside: door mat, plants, "OPEN" sign.
 	Build.decor(Build.part(model, "DoorMat", Vector3.new(doorW - 1, 0.05, 3), at(0, floorY + 0.025, frontZ + 1.6), darken(accent, 0.2)))
@@ -244,6 +306,13 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	local openSign = Build.part(model, "OpenSign", Vector3.new(3, 1.2, 0.1), at(halfW / 2 + 2, 6, frontZ + 0.1), Color3.fromRGB(255, 60, 80), Enum.Material.Neon)
 	Build.decor(openSign)
 	Build.surfaceText(openSign, Enum.NormalId.Front, "OPEN", WHITE)
+
+	-- Outside the front windows: a gumball machine and an ice-cream freezer.
+	local frontProps = Instance.new("Model")
+	frontProps.Name = "FrontProps"
+	PropBuilder.gumballMachine(frontProps, at(doorW / 2 + 2.8, 0, frontZ - 2.3), accent)
+	PropBuilder.freezer(frontProps, at(-doorW / 2 - 3.6, 0, frontZ - 2.1))
+	frontProps.Parent = model
 
 	-- Checkout counter + till
 	local counterCFrame = plotCFrame * layout.CounterCFrame
@@ -292,6 +361,17 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	-- Path from the pavement to the door.
 	local walkLength = frontZ + Config.PlotDepth / 2 -- from the plot's front edge to the door
 	Build.decor(Build.part(model, "Path", Vector3.new(doorW, 0.1, walkLength), at(0, 0.05, frontZ - walkLength / 2), Color3.fromRGB(230, 226, 214)))
+	if vip then
+		-- Red carpet with gold edging and rope posts up to the door.
+		local carpetLength = walkLength - 6
+		local carpetCFrame = at(0, 0.12, frontZ - carpetLength / 2)
+		Build.decor(Build.part(model, "RedCarpet", Vector3.new(doorW - 2, 0.05, carpetLength), carpetCFrame, Color3.fromRGB(200, 30, 50), Enum.Material.Fabric))
+		for _, side in { -1, 1 } do
+			Build.decor(Build.part(model, "CarpetEdge", Vector3.new(0.3, 0.06, carpetLength), carpetCFrame * CFrame.new(side * (doorW / 2 - 0.85), 0.01, 0), GOLD))
+		end
+		PropBuilder.stanchions(model, at(-doorW / 2 - 0.6, 0, frontZ - 14), 4, 3)
+		PropBuilder.stanchions(model, at(doorW / 2 + 0.6, 0, frontZ - 5), 2, 3)
+	end
 
 	-- Invisible volume used for "is the player inside the shop?" checks.
 	local interior = Build.part(model, "Interior", layout.InteriorSize, plotCFrame * CFrame.new(layout.InteriorCenter), WHITE)

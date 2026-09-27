@@ -6,18 +6,22 @@
 --   DataUpdate(snapshot)          full UI state for the owning player
 --   Notify(kind, text, extra?)    banner/toast messages
 --   Effect(name, payload)         visual/audio effects for everyone nearby
+--   Leaderboards(boards)          new leaderboard data
 -- Client -> server
 --   BuyUpgrade(upgradeId) -> (ok, message)
 --   SelectProduct(productId?)      preferred product for stocking empty slots
+--   SkipTutorial()
+--   TestPurchase(kind, key) -> (ok, message)   Studio-only free Robux-shop purchases
 --   GetData() -> snapshot
+--   GetLeaderboards() -> boards
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Remotes = {}
 
-local EVENTS = { "DataUpdate", "Notify", "Effect", "SelectProduct" }
-local FUNCTIONS = { "BuyUpgrade", "GetData" }
+local EVENTS = { "DataUpdate", "Notify", "Effect", "SelectProduct", "SkipTutorial", "Leaderboards" }
+local FUNCTIONS = { "BuyUpgrade", "GetData", "TestPurchase", "GetLeaderboards" }
 
 local FOLDER_NAME = "Remotes"
 

@@ -14,7 +14,6 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
-local Format = require(Shared.Format)
 local Items = require(Shared.Items)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
@@ -27,6 +26,11 @@ export type Stats = {
 	Deliveries: number,
 }
 
+export type TutorialState = {
+	Step: number,
+	Done: boolean,
+}
+
 export type Data = {
 	Version: number,
 	Cash: number,
@@ -36,6 +40,9 @@ export type Data = {
 	Shelves: { { string } },
 	SelectedProduct: string?,
 	Stats: Stats,
+	Tutorial: TutorialState,
+	Boosts: { [string]: number }, -- boost key -> os.time() it ends
+	Receipts: { string }, -- recent Robux purchase ids (so a purchase is never granted twice)
 }
 
 type Profile = {
@@ -55,6 +62,7 @@ PlayerData.Changed = Signal.new() :: Signal.Signal<Player>
 -- Hooks set by other services (avoids circular requires).
 PlayerData.BeforeSave = nil :: ((player: Player, data: Data) -> ())?
 PlayerData.ExtraValue = nil :: ((player: Player) -> number)?
+PlayerData.SnapshotExtras = {} :: { (player: Player, snapshot: { [string]: any }) -> () }
 
 local profiles: { [Player]: Profile } = {}
 local dirty: { [Player]: boolean } = {}
@@ -93,6 +101,9 @@ local function defaultData(): Data
 		Shelves = {},
 		SelectedProduct = nil,
 		Stats = { ItemsSold = 0, BoxesOpened = 0, RaresFound = 0, Deliveries = 0 },
+		Tutorial = { Step = 1, Done = false },
+		Boosts = {},
+		Receipts = {},
 	}
 end
 
@@ -149,6 +160,30 @@ local function reconcile(raw: unknown): Data
 	if type(source.Stats) == "table" then
 		for stat, _ in data.Stats do
 			(data.Stats :: any)[stat] = cleanNumber(source.Stats[stat], 0, 0, 1e15)
+		end
+	end
+
+	if type(source.Tutorial) == "table" then
+		data.Tutorial.Step = cleanNumber(source.Tutorial.Step, 1, 1, 99)
+		data.Tutorial.Done = source.Tutorial.Done == true
+	elseif data.Stats.ItemsSold > 0 then
+		-- Saves from before the tutorial existed: they already know how to play.
+		data.Tutorial.Done = true
+	end
+
+	if type(source.Boosts) == "table" then
+		for key, expiry in source.Boosts do
+			if type(key) == "string" and type(expiry) == "number" and expiry > os.time() then
+				data.Boosts[key] = math.floor(expiry)
+			end
+		end
+	end
+
+	if type(source.Receipts) == "table" then
+		for _, receipt in source.Receipts do
+			if type(receipt) == "string" and #data.Receipts < 100 then
+				table.insert(data.Receipts, receipt)
+			end
 		end
 	end
 	return data
@@ -319,6 +354,17 @@ function PlayerData.addCash(player: Player, amount: number)
 	PlayerData.markDirty(player)
 end
 
+-- Cash that isn't earned from sales (tutorial rewards, Robux packs):
+-- doesn't count towards the "Total Earned" leaderboard.
+function PlayerData.giveCash(player: Player, amount: number)
+	local data = PlayerData.get(player)
+	if not data or amount <= 0 then
+		return
+	end
+	data.Cash += math.floor(amount)
+	PlayerData.markDirty(player)
+end
+
 -- Returns true and deducts if the player can afford it.
 function PlayerData.spend(player: Player, amount: number): boolean
 	local data = PlayerData.get(player)
@@ -394,7 +440,15 @@ function PlayerData.snapshot(player: Player): { [string]: any }?
 	if not data then
 		return nil
 	end
-	return {
+	local boostEnds = {}
+	local serverNow = workspace:GetServerTimeNow()
+	for key, expiry in data.Boosts do
+		local remaining = expiry - os.time()
+		if remaining > 0 then
+			boostEnds[key] = serverNow + remaining
+		end
+	end
+	local snapshot: { [string]: any } = {
 		Cash = data.Cash,
 		TotalEarned = data.TotalEarned,
 		Upgrades = table.clone(data.Upgrades),
@@ -403,7 +457,13 @@ function PlayerData.snapshot(player: Player): { [string]: any }?
 		StoreValue = PlayerData.storeValue(player),
 		ItemsSold = data.Stats.ItemsSold,
 		Saving = PlayerData.canSave(),
+		Tutorial = { Step = data.Tutorial.Step, Done = data.Tutorial.Done },
+		BoostEnds = boostEnds,
 	}
+	for _, extra in PlayerData.SnapshotExtras do
+		extra(player, snapshot)
+	end
+	return snapshot
 end
 
 function PlayerData.updateLeaderstats(player: Player)
@@ -411,19 +471,29 @@ function PlayerData.updateLeaderstats(player: Player)
 	if not data then
 		return
 	end
+	-- Player list: the first stat ("Value") is what the list sorts by.
 	local leaderstats = player:FindFirstChild("leaderstats")
 	if not leaderstats then
 		local folder = Instance.new("Folder")
 		folder.Name = "leaderstats"
-		local cash = Instance.new("StringValue")
-		cash.Name = "Cash"
-		cash.Parent = folder
+		for _, name in { "Value", "Cash", "Sold" } do
+			local stat = Instance.new("IntValue")
+			stat.Name = name
+			stat.Parent = folder
+		end
 		folder.Parent = player
 		leaderstats = folder
 	end
-	local cashValue = (leaderstats :: Instance):FindFirstChild("Cash")
-	if cashValue and cashValue:IsA("StringValue") then
-		cashValue.Value = Format.shortMoney(data.Cash)
+	local values: { [string]: number } = {
+		Value = math.floor(PlayerData.storeValue(player)),
+		Cash = data.Cash,
+		Sold = data.Stats.ItemsSold,
+	}
+	for name, value in values do
+		local stat = (leaderstats :: Instance):FindFirstChild(name)
+		if stat and stat:IsA("IntValue") and stat.Value ~= value then
+			stat.Value = value
+		end
 	end
 end
 

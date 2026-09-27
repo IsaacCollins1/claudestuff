@@ -15,6 +15,7 @@ export type BoxInfo = {
 	Carried: boolean,
 	Opened: boolean,
 	Prompt: ProximityPrompt?,
+	Special: string?, -- "Golden" for Golden Crates
 }
 
 export type Shelf = {

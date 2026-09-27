@@ -16,6 +16,10 @@ export type Snapshot = {
 	StoreValue: number,
 	ItemsSold: number,
 	Saving: boolean,
+	Tutorial: { Step: number, Done: boolean },
+	BoostEnds: { [string]: number }, -- boost key -> workspace:GetServerTimeNow() it ends
+	Passes: { [string]: boolean }?,
+	IsStudio: boolean?,
 }
 
 local State = {}
@@ -64,6 +68,26 @@ function State.inventoryTotal(): number
 		total += count
 	end
 	return total
+end
+
+function State.hasPass(key: string): boolean
+	local data = State.Data
+	return data ~= nil and data.Passes ~= nil and data.Passes[key] == true
+end
+
+function State.boostRemaining(key: string): number
+	local data = State.Data
+	local ends = data and data.BoostEnds and data.BoostEnds[key]
+	return if ends then math.max(0, ends - workspace:GetServerTimeNow()) else 0
+end
+
+-- Current tutorial step index, or nil once the tutorial is finished.
+function State.tutorialStep(): number?
+	local data = State.Data
+	if not data or not data.Tutorial or data.Tutorial.Done then
+		return nil
+	end
+	return data.Tutorial.Step
 end
 
 return State

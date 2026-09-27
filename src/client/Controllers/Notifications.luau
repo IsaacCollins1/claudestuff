@@ -21,12 +21,13 @@ local cardHolder: Frame
 local activeCard: Frame? = nil
 
 local STYLES: { [string]: { Color: Color3, Dark: Color3, Duration: number, Sound: string? } } = {
-	Delivery = { Color = Colors.Orange, Dark = Color3.fromRGB(170, 80, 0), Duration = 2.6, Sound = "Delivery" },
-	Rare = { Color = Colors.Purple, Dark = Color3.fromRGB(70, 30, 140), Duration = 3.5, Sound = "Rare" },
+	Delivery = { Color = Colors.Orange, Dark = Color3.fromRGB(150, 70, 0), Duration = 2.6, Sound = "Delivery" },
+	Rare = { Color = Colors.Purple, Dark = Colors.PurpleDark, Duration = 3.5, Sound = "Rare" },
 	Upgrade = { Color = Colors.Green, Dark = Colors.GreenDark, Duration = 2.2, Sound = nil },
 	Expand = { Color = Colors.Pink, Dark = Color3.fromRGB(150, 30, 90), Duration = 3.5, Sound = "Upgrade" },
-	Info = { Color = Colors.Panel, Dark = Colors.Dark, Duration = 2.6, Sound = nil },
-	Error = { Color = Colors.Red, Dark = Color3.fromRGB(140, 30, 30), Duration = 2.2, Sound = "Error" },
+	Purchase = { Color = Colors.Gold, Dark = Colors.GoldDark, Duration = 3.2, Sound = nil },
+	Info = { Color = Colors.PanelLight, Dark = Colors.Outline, Duration = 2.6, Sound = nil },
+	Error = { Color = Colors.Red, Dark = Colors.RedDark, Duration = 2.2, Sound = "Error" },
 }
 
 function Notifications.init(screen: ScreenGui)
@@ -57,20 +58,41 @@ function Notifications.init(screen: ScreenGui)
 end
 
 local order = 0
+local topOffset = 0
+
+-- Push banners and the box card down while something (the tutorial card)
+-- is using the top of the screen.
+function Notifications.setTopOffset(offset: number)
+	if offset == topOffset or not container then
+		return
+	end
+	topOffset = offset
+	UIKit.tween(container, 0.25, { Position = UDim2.new(0.5, 0, 0, 118 + offset) })
+	UIKit.tween(cardHolder, 0.25, { Position = UDim2.new(0.5, 0, 0.36, offset) })
+end
 
 function Notifications.show(kind: string, text: string)
 	local style = STYLES[kind] or STYLES.Info
 	order += 1
+	local big = kind == "Rare" or kind == "Expand" or kind == "Purchase"
 	local banner = UIKit.new("Frame", {
 		Name = "Banner",
-		Size = UDim2.fromOffset(if kind == "Rare" or kind == "Expand" then 440 else 400, if kind == "Info" then 44 else 54),
+		Size = UDim2.fromOffset(if big then 460 else 410, if kind == "Info" then 46 else 58),
 		BackgroundColor3 = style.Color,
 		LayoutOrder = order,
 	}, nil)
 	UIKit.corner(banner, UDim.new(1, 0))
-	UIKit.stroke(banner, style.Dark, 3)
-	local label = UIKit.label(banner, text, { Size = UDim2.new(1, -30, 1, -12), Position = UDim2.fromOffset(15, 6) })
-	UIKit.textStroke(label, style.Dark, 2)
+	UIKit.stroke(banner, Colors.Outline, 4)
+	if kind ~= "Rare" then
+		UIKit.gradient(banner, Color3.fromRGB(255, 255, 255), Color3.fromRGB(195, 195, 205))
+	end
+	local label = UIKit.title(banner, text, { Size = UDim2.new(1, -36, 1, -16), Position = UDim2.fromOffset(18, 8) }, style.Dark, 2.5)
+	if kind == "Purchase" or kind == "Rare" then
+		UIKit.shine(banner, UDim.new(1, 0), 1)
+	end
+	if kind == "Info" then
+		label.Font = UIKit.Font
+	end
 
 	if kind == "Rare" then
 		banner.BackgroundColor3 = Colors.White
@@ -128,30 +150,35 @@ function Notifications.boxOpened(contents: { { Key: string, Count: number } })
 		Name = "Card",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(320, 64 + rows * 40),
-		BackgroundColor3 = Colors.Dark,
-		BackgroundTransparency = 0.05,
+		Size = UDim2.fromOffset(340, 70 + rows * 40),
+		BackgroundColor3 = Colors.Panel,
 	}, nil)
-	UIKit.corner(card, UDim.new(0, 20))
-	UIKit.stroke(card, Colors.Yellow, 4)
-	local title = UIKit.label(card, "DELIVERY OPENED!", {
-		Size = UDim2.new(1, -24, 0, 36),
-		Position = UDim2.fromOffset(12, 10),
-		TextColor3 = Colors.Yellow,
-	})
-	UIKit.textStroke(title, Color3.fromRGB(120, 80, 0), 2)
+	UIKit.corner(card, UDim.new(0, 22))
+	UIKit.stroke(card, Colors.Outline, 4)
+	UIKit.gradient(card, Color3.fromRGB(255, 255, 255), Color3.fromRGB(185, 190, 215))
+	local ribbon = UIKit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0),
+		Size = UDim2.fromOffset(300, 46),
+		BackgroundColor3 = Colors.Yellow,
+		ZIndex = 3,
+	}, card)
+	UIKit.corner(ribbon, UDim.new(1, 0))
+	UIKit.stroke(ribbon, Colors.Outline, 3)
+	UIKit.title(ribbon, "📦 DELIVERY OPENED!", {
+		Size = UDim2.new(1, -20, 1, -12),
+		Position = UDim2.fromOffset(10, 6),
+		ZIndex = 4,
+	}, Colors.GoldDark, 2.5)
 	for index = 1, rows do
 		local entry = contents[index]
 		local rare = Items.isRare(entry.Key)
 		local variant = Items.variant(entry.Key)
-		local row = UIKit.label(card, `{Items.icon(entry.Key)} {Items.displayName(entry.Key)} x{entry.Count}`, {
+		UIKit.title(card, `{Items.icon(entry.Key)} {Items.displayName(entry.Key)} x{entry.Count}`, {
 			Size = UDim2.new(1, -24, 0, 34),
-			Position = UDim2.fromOffset(12, 50 + (index - 1) * 40),
+			Position = UDim2.fromOffset(12, 34 + (index - 1) * 40),
 			TextColor3 = if rare then variant.Color else Colors.White,
-		})
-		if rare then
-			UIKit.textStroke(row, Colors.Dark, 2)
-		end
+		}, Colors.Outline, 2.5)
 	end
 	card.Parent = cardHolder
 	activeCard = card

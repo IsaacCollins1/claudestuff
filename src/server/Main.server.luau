@@ -8,10 +8,14 @@ local Players = game:GetService("Players")
 local Services = script.Parent.Services
 local Boxes = require(Services.Boxes)
 local Deliveries = require(Services.Deliveries)
+local Leaderboards = require(Services.Leaderboards)
+local MonetizationService = require(Services.MonetizationService)
 local Net = require(Services.Net)
 local PlayerData = require(Services.PlayerData)
 local Stores = require(Services.Stores)
+local TutorialService = require(Services.TutorialService)
 local UpgradeService = require(Services.UpgradeService)
+local WorldBuilder = require(script.Parent.Builders.WorldBuilder)
 
 -- Collision groups: NPCs never block players or each other.
 local function setupCollisionGroups()
@@ -81,6 +85,7 @@ local function onPlayerAdded(player: Player)
 		PlayerData.release(player)
 		return
 	end
+	MonetizationService.playerJoined(player)
 
 	local session = Stores.claim(player)
 	if session then
@@ -102,13 +107,18 @@ local function onPlayerRemoving(player: Player)
 		warn("[FillTheStore] Failed to release store: " .. tostring(err))
 	end
 	PlayerData.release(player)
+	MonetizationService.playerLeft(player)
 end
 
 Net.init()
 setupCollisionGroups()
 PlayerData.init()
 Stores.init()
+Leaderboards.buildSigns(workspace:WaitForChild("World"), WorldBuilder.leaderboardCFrames())
+Leaderboards.init()
 UpgradeService.init()
+TutorialService.init()
+MonetizationService.init()
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)

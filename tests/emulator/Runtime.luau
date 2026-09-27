@@ -326,6 +326,82 @@ local function registerApi()
 	Instances.method("DataStoreService", "GetDataStore", function(_, name)
 		return current:getDataStore(name)
 	end)
+	Instances.method("DataStoreService", "GetOrderedDataStore", function(_, name)
+		return current:getOrderedDataStore(name)
+	end)
+	Instances.method("Players", "GetNameFromUserIdAsync", function(_, userId)
+		Scheduler.wait(0.05)
+		return "User" .. tostring(userId)
+	end)
+
+	-- Robux purchases: prompts complete instantly as if the player clicked "Buy".
+	Instances.callbacks("MarketplaceService", { "ProcessReceipt" })
+	Instances.events("MarketplaceService", {
+		"PromptGamePassPurchaseFinished",
+		"PromptProductPurchaseFinished",
+		"PromptPurchaseFinished",
+	})
+	Instances.method("MarketplaceService", "PromptProductPurchase", function(self, player, productId)
+		assert(Instances.isInstance(player) and player:IsA("Player"), "PromptProductPurchase: bad player")
+		assert(type(productId) == "number" and productId > 0, "PromptProductPurchase: bad product id")
+		current.purchaseCounter += 1
+		local receipt = {
+			PlayerId = player.UserId,
+			ProductId = productId,
+			PurchaseId = "emu-" .. current.purchaseCounter,
+			CurrencySpent = 42,
+			CurrencyType = Enum.CurrencyType.Robux,
+			PlaceIdWherePurchased = current.game.PlaceId,
+		}
+		Scheduler.spawn(function()
+			Scheduler.wait(0.3)
+			for attempt = 1, current.receiptAttempts do
+				local handler = self.ProcessReceipt
+				local decision = if handler then handler(table.clone(receipt)) else nil
+				table.insert(current.receiptLog, { Receipt = receipt, Decision = decision })
+				if decision == Enum.ProductPurchaseDecision.PurchaseGranted then
+					break
+				end
+				Scheduler.wait(5)
+			end
+			Instances.fire(self, "PromptProductPurchaseFinished", player.UserId, productId, true)
+		end)
+	end)
+	Instances.method("MarketplaceService", "PromptGamePassPurchase", function(self, player, passId)
+		assert(type(passId) == "number" and passId > 0, "PromptGamePassPurchase: bad pass id")
+		current.ownedPasses[player.UserId] = current.ownedPasses[player.UserId] or {}
+		current.ownedPasses[player.UserId][passId] = true
+		Scheduler.spawn(function()
+			Scheduler.wait(0.3)
+			Instances.fire(self, "PromptGamePassPurchaseFinished", player, passId, true)
+		end)
+	end)
+	Instances.method("MarketplaceService", "UserOwnsGamePassAsync", function(_, userId, passId)
+		Scheduler.wait(0.05)
+		local owned = current.ownedPasses[userId]
+		return owned ~= nil and owned[passId] == true
+	end)
+	Instances.method("MarketplaceService", "GetProductInfo", function(_, id)
+		Scheduler.wait(0.05)
+		return { Name = "Product " .. tostring(id), PriceInRobux = 42, IconImageAssetId = 0 }
+	end)
+
+	Instances.method("AssetService", "CreateMeshPartAsync", function(_, meshId)
+		error("CreateMeshPartAsync is not available in the emulator (" .. tostring(meshId) .. ")")
+	end)
+	Instances.method("GuiService", "GetGuiInset", function()
+		return Vector2.new(0, 58), Vector2.new(0, 0)
+	end)
+	Instances.method("Camera", "WorldToViewportPoint", function(self, position)
+		-- Simple pinhole projection using the camera's CFrame and FieldOfView.
+		local relative = self.CFrame:PointToObjectSpace(position)
+		local viewport = self.ViewportSize
+		local depth = -relative.Z
+		local scale = (viewport.Y / 2) / math.tan(math.rad(self.FieldOfView) / 2)
+		local x = viewport.X / 2 + relative.X / math.max(depth, 0.01) * scale
+		local y = viewport.Y / 2 - relative.Y / math.max(depth, 0.01) * scale
+		return Vector3.new(x, y, depth), depth > 0 and x >= 0 and y >= 0 and x <= viewport.X and y <= viewport.Y
+	end)
 
 	Instances.method("ContentProvider", "PreloadAsync", function(_, list, callback)
 		assert(type(list) == "table", "PreloadAsync expects an array")
@@ -447,6 +523,11 @@ function Runtime.new(options: Options)
 	self.moduleCache = { server = {}, client = {} }
 	self.localPlayer = nil
 	self.dataStores = options.dataStores or {}
+	self.orderedStores = options.orderedStores or {}
+	self.ownedPasses = options.ownedPasses or {}
+	self.purchaseCounter = 0
+	self.receiptAttempts = 3
+	self.receiptLog = {}
 
 	local game = Instances.new("DataModel", true)
 	game.Name = "Game"
@@ -675,6 +756,58 @@ function Runtime:getDataStore(name: string)
 			storage[key] = serde.encode("json", new)
 		end
 		return new
+	end
+	return store
+end
+
+function Runtime:getOrderedDataStore(name: string)
+	local mode = self.options.dataStoreMode or "ok"
+	if mode == "unpublished" then
+		error("You must publish this place to the web to access DataStore.")
+	end
+	local storage = self.orderedStores[name]
+	if not storage then
+		storage = {}
+		self.orderedStores[name] = storage
+	end
+	local function check()
+		Scheduler.wait(0.05)
+		if mode == "denied" then
+			error("502: API Services rejected request with error. HTTP 403 (Forbidden) StudioAccessToApisNotAllowed")
+		end
+	end
+	local store = {}
+	function store:SetAsync(key, value)
+		check()
+		assert(type(key) == "string", "OrderedDataStore keys must be strings")
+		assert(type(value) == "number" and value == math.floor(value), "OrderedDataStore values must be integers, got " .. tostring(value))
+		storage[key] = value
+	end
+	function store:GetAsync(key)
+		check()
+		return storage[key]
+	end
+	function store:GetSortedAsync(ascending, pageSize)
+		check()
+		assert(type(pageSize) == "number" and pageSize >= 1 and pageSize <= 100, "pageSize must be 1-100")
+		local entries = {}
+		for key, value in storage do
+			table.insert(entries, { key = key, value = value })
+		end
+		table.sort(entries, function(a, b)
+			return if ascending then a.value < b.value else a.value > b.value
+		end)
+		local page = {}
+		for i = 1, math.min(pageSize, #entries) do
+			page[i] = entries[i]
+		end
+		return {
+			IsFinished = true,
+			GetCurrentPage = function()
+				return page
+			end,
+			AdvanceToNextPageAsync = function() end,
+		}
 	end
 	return store
 end

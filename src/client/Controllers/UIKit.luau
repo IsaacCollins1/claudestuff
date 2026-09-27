@@ -1,29 +1,45 @@
 --!strict
--- Tiny helpers for building the rounded, colourful UI in code.
+-- Building blocks for the chunky, bouncy "simulator" style UI.
 
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local UIKit = {}
 
-UIKit.Font = Enum.Font.FredokaOne
+UIKit.Font = Enum.Font.FredokaOne -- body text
+UIKit.Title = Enum.Font.LuckiestGuy -- big numbers, buttons, headings
+UIKit.Robux = utf8.char(0xE002) -- Roblox's built-in Robux icon glyph
 
 UIKit.Colors = {
 	Dark = Color3.fromRGB(26, 28, 42),
-	Panel = Color3.fromRGB(38, 41, 60),
-	PanelLight = Color3.fromRGB(54, 58, 84),
+	Outline = Color3.fromRGB(20, 20, 32),
+	Panel = Color3.fromRGB(40, 43, 64),
+	PanelLight = Color3.fromRGB(58, 62, 92),
 	White = Color3.fromRGB(255, 255, 255),
-	Green = Color3.fromRGB(70, 210, 90),
-	GreenDark = Color3.fromRGB(35, 140, 60),
-	Blue = Color3.fromRGB(60, 150, 255),
-	BlueDark = Color3.fromRGB(30, 90, 200),
-	Yellow = Color3.fromRGB(255, 205, 50),
-	Orange = Color3.fromRGB(255, 150, 40),
-	Red = Color3.fromRGB(255, 80, 80),
-	Pink = Color3.fromRGB(255, 90, 170),
-	Purple = Color3.fromRGB(150, 90, 255),
-	Grey = Color3.fromRGB(120, 124, 140),
+	Green = Color3.fromRGB(80, 220, 90),
+	GreenDark = Color3.fromRGB(30, 140, 50),
+	Blue = Color3.fromRGB(70, 160, 255),
+	BlueDark = Color3.fromRGB(25, 90, 200),
+	Yellow = Color3.fromRGB(255, 210, 50),
 	Gold = Color3.fromRGB(255, 196, 37),
+	GoldDark = Color3.fromRGB(190, 120, 0),
+	Orange = Color3.fromRGB(255, 150, 40),
+	Red = Color3.fromRGB(255, 75, 85),
+	RedDark = Color3.fromRGB(170, 25, 40),
+	Pink = Color3.fromRGB(255, 90, 170),
+	Purple = Color3.fromRGB(160, 95, 255),
+	PurpleDark = Color3.fromRGB(90, 40, 180),
+	Grey = Color3.fromRGB(130, 134, 150),
+	GreyDark = Color3.fromRGB(80, 84, 100),
 }
+
+function UIKit.darken(color: Color3, amount: number): Color3
+	return color:Lerp(Color3.new(0, 0, 0), amount)
+end
+
+function UIKit.lighten(color: Color3, amount: number): Color3
+	return color:Lerp(Color3.new(1, 1, 1), amount)
+end
 
 -- Create an instance, set properties, parent it last.
 function UIKit.new(className: string, props: { [string]: any }?, parent: Instance?): any
@@ -101,6 +117,14 @@ function UIKit.label(parent: Instance?, text: string, props: { [string]: any }?)
 	return label
 end
 
+-- Big outlined heading text (LuckiestGuy with a dark stroke).
+function UIKit.title(parent: Instance?, text: string, props: { [string]: any }?, strokeColor: Color3?, strokeThickness: number?): TextLabel
+	local label = UIKit.label(parent, text, props)
+	label.Font = UIKit.Title
+	UIKit.textStroke(label, strokeColor or UIKit.Colors.Outline, strokeThickness or 3)
+	return label
+end
+
 function UIKit.tween(instance: Instance, time: number, props: { [string]: any }, style: Enum.EasingStyle?, direction: Enum.EasingDirection?): Tween
 	local tween = TweenService:Create(
 		instance,
@@ -127,6 +151,13 @@ function UIKit.pop(object: GuiObject, amount: number?)
 	UIKit.tween(scale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 end
 
+-- Appear with a bounce from nothing.
+function UIKit.popIn(object: GuiObject, time: number?)
+	local scale = UIKit.scaleOf(object)
+	scale.Scale = 0.2
+	UIKit.tween(scale, time or 0.35, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end
+
 -- Horizontal shake for "can't afford" feedback.
 function UIKit.shake(object: GuiObject)
 	local origin = object.Position
@@ -139,32 +170,234 @@ function UIKit.shake(object: GuiObject)
 	end)
 end
 
--- Chunky button with a press animation.
-function UIKit.button(parent: Instance, props: { [string]: any }, onClick: () -> ()): TextButton
-	local button = UIKit.new("TextButton", {
-		AutoButtonColor = false,
-		Font = UIKit.Font,
-		TextColor3 = UIKit.Colors.White,
-		TextScaled = true,
+-- A shiny highlight band that sweeps across a (rounded) GuiObject now and then.
+function UIKit.shine(object: GuiObject, radius: UDim?, interval: number?)
+	local shine = UIKit.new("Frame", {
+		Name = "Shine",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = UIKit.Colors.White,
 		BorderSizePixel = 0,
-	}, nil)
-	for key, value in props do
-		(button :: any)[key] = value
-	end
-	UIKit.corner(button)
-	local scale = UIKit.scaleOf(button)
-	button.MouseButton1Down:Connect(function()
-		UIKit.tween(scale, 0.08, { Scale = 0.92 })
+		ZIndex = object.ZIndex + 2,
+	}, object)
+	UIKit.corner(shine, radius)
+	local gradient = UIKit.new("UIGradient", {
+		Rotation = 20,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.42, 1),
+			NumberSequenceKeypoint.new(0.5, 0.45),
+			NumberSequenceKeypoint.new(0.58, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Offset = Vector2.new(-1, 0),
+	}, shine)
+	task.spawn(function()
+		while shine.Parent do
+			gradient.Offset = Vector2.new(-1, 0)
+			UIKit.tween(gradient, 0.7, { Offset = Vector2.new(1, 0) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+			task.wait(interval or 3)
+		end
 	end)
-	button.MouseButton1Up:Connect(function()
-		UIKit.tween(scale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+end
+
+-- Gentle idle bob so important buttons feel alive.
+function UIKit.wobble(object: GuiObject, degrees: number?)
+	local amount = degrees or 4
+	local offset = math.random() * 10
+	local connection
+	connection = RunService.RenderStepped:Connect(function()
+		if not object.Parent then
+			connection:Disconnect()
+			return
+		end
+		object.Rotation = math.sin(os.clock() * 2.2 + offset) * amount
+	end)
+end
+
+-- Gold "£" coin icon.
+function UIKit.coin(parent: Instance?, size: number, props: { [string]: any }?): Frame
+	local coin = UIKit.new("Frame", {
+		Name = "Coin",
+		Size = UDim2.fromOffset(size, size),
+		BackgroundColor3 = UIKit.Colors.Gold,
+	}, nil)
+	UIKit.corner(coin, UDim.new(1, 0))
+	UIKit.stroke(coin, UIKit.Colors.GoldDark, math.max(2, size / 16))
+	UIKit.gradient(coin, Color3.fromRGB(255, 255, 255), Color3.fromRGB(230, 200, 150))
+	UIKit.title(coin, "£", {
+		Size = UDim2.fromScale(0.7, 0.7),
+		Position = UDim2.fromScale(0.15, 0.17),
+		TextColor3 = Color3.fromRGB(255, 250, 220),
+	}, UIKit.Colors.GoldDark, math.max(1.5, size / 22))
+	if props then
+		for key, value in props do
+			(coin :: any)[key] = value
+		end
+	end
+	coin.Parent = parent
+	return coin
+end
+
+function UIKit.badge(parent: Instance, color: Color3, text: string): (Frame, TextLabel)
+	local frame = UIKit.new("Frame", {
+		Name = "Badge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -8, 0, 8),
+		Size = UDim2.fromOffset(34, 34),
+		BackgroundColor3 = color,
+		Visible = false,
+		ZIndex = 20,
+	}, parent)
+	UIKit.corner(frame, UDim.new(1, 0))
+	UIKit.stroke(frame, UIKit.Colors.White, 3)
+	local label = UIKit.title(frame, text, {
+		Size = UDim2.fromScale(0.78, 0.78),
+		Position = UDim2.fromScale(0.11, 0.13),
+		ZIndex = 21,
+	}, UIKit.darken(color, 0.5), 1.5)
+	return frame, label
+end
+
+export type Chunky = {
+	Button: TextButton,
+	Face: Frame,
+	Base: Frame,
+	Icon: TextLabel?,
+	Text: TextLabel?,
+	SetColor: (color: Color3) -> (),
+}
+
+-- Chunky 3D button: a coloured face sitting on a darker base; it presses
+-- down when clicked and grows a little on hover.
+function UIKit.chunky(parent: Instance?, props: { [string]: any }, onClick: () -> ()): Chunky
+	local color: Color3 = props.Color or UIKit.Colors.Green
+	local depth = props.Depth or 6
+	local button = UIKit.new("TextButton", {
+		Name = props.Name or "Button",
+		Size = props.Size or UDim2.fromOffset(160, 56),
+		Position = props.Position or UDim2.new(),
+		AnchorPoint = props.AnchorPoint or Vector2.zero,
+		BackgroundTransparency = 1,
+		Text = "",
+		AutoButtonColor = false,
+		LayoutOrder = props.LayoutOrder or 0,
+		ZIndex = props.ZIndex or 1,
+	}, nil)
+	local z = button.ZIndex
+	local base = UIKit.new("Frame", {
+		Name = "Base",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = UIKit.darken(color, 0.35),
+		ZIndex = z,
+	}, button)
+	local radius = props.Radius or UDim.new(0, 14)
+	UIKit.corner(base, radius)
+	UIKit.stroke(base, UIKit.Colors.Outline, props.StrokeThickness or 3)
+	local face = UIKit.new("Frame", {
+		Name = "Face",
+		Size = UDim2.new(1, 0, 1, -depth),
+		BackgroundColor3 = color,
+		ZIndex = z + 1,
+	}, button)
+	UIKit.corner(face, radius)
+	UIKit.gradient(face, Color3.fromRGB(255, 255, 255), Color3.fromRGB(205, 205, 205))
+	-- Glossy highlight on the top half.
+	local gloss = UIKit.new("Frame", {
+		Name = "Gloss",
+		Size = UDim2.new(1, -8, 0.42, 0),
+		Position = UDim2.fromOffset(4, 3),
+		BackgroundColor3 = UIKit.Colors.White,
+		BackgroundTransparency = 0.72,
+		ZIndex = z + 2,
+	}, face)
+	UIKit.corner(gloss, radius)
+
+	local icon: TextLabel? = nil
+	local text: TextLabel? = nil
+	if props.Icon and props.Text then
+		icon = UIKit.label(face, props.Icon, {
+			Name = "Icon",
+			Size = UDim2.fromScale(0.62, 0.56),
+			Position = UDim2.fromScale(0.19, 0.06),
+			ZIndex = z + 3,
+		})
+		text = UIKit.title(face, props.Text, {
+			Name = "Label",
+			Size = UDim2.fromScale(0.9, 0.3),
+			Position = UDim2.fromScale(0.05, 0.64),
+			ZIndex = z + 3,
+		}, UIKit.darken(color, 0.55), 2)
+	elseif props.Icon then
+		icon = UIKit.label(face, props.Icon, {
+			Name = "Icon",
+			Size = UDim2.fromScale(0.72, 0.72),
+			Position = UDim2.fromScale(0.14, 0.14),
+			ZIndex = z + 3,
+		})
+	elseif props.Text then
+		text = UIKit.title(face, props.Text, {
+			Name = "Label",
+			Size = UDim2.new(1, -16, 0.72, 0),
+			Position = UDim2.new(0, 8, 0.14, 0),
+			ZIndex = z + 3,
+		}, UIKit.darken(color, 0.55), props.TextStroke or 2.5)
+		if props.MaxTextSize then
+			UIKit.new("UITextSizeConstraint", { MaxTextSize = props.MaxTextSize }, text)
+		end
+	end
+
+	local scale = UIKit.scaleOf(button)
+	local function press()
+		UIKit.tween(face, 0.06, { Position = UDim2.fromOffset(0, depth - 2) })
+	end
+	local function release()
+		UIKit.tween(face, 0.12, { Position = UDim2.fromOffset(0, 0) }, Enum.EasingStyle.Back)
+	end
+	button.MouseButton1Down:Connect(press)
+	button.MouseButton1Up:Connect(release)
+	button.MouseEnter:Connect(function()
+		UIKit.tween(scale, 0.15, { Scale = 1.06 }, Enum.EasingStyle.Back)
 	end)
 	button.MouseLeave:Connect(function()
-		UIKit.tween(scale, 0.2, { Scale = 1 })
+		release()
+		UIKit.tween(scale, 0.15, { Scale = 1 })
 	end)
 	button.Activated:Connect(onClick)
 	button.Parent = parent
-	return button
+
+	local chunky: Chunky = {
+		Button = button,
+		Face = face,
+		Base = base,
+		Icon = icon,
+		Text = text,
+		SetColor = function(newColor: Color3)
+			face.BackgroundColor3 = newColor
+			base.BackgroundColor3 = UIKit.darken(newColor, 0.35)
+			if text then
+				local stroke = text:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					stroke.Color = UIKit.darken(newColor, 0.55)
+				end
+			end
+		end,
+	}
+	return chunky
+end
+
+-- Dark translucent rounded "pill" panel.
+function UIKit.pill(parent: Instance?, props: { [string]: any }): Frame
+	local frame = UIKit.new("Frame", {
+		BackgroundColor3 = UIKit.Colors.Dark,
+		BackgroundTransparency = 0.15,
+	}, nil)
+	for key, value in props do
+		(frame :: any)[key] = value
+	end
+	UIKit.corner(frame, UDim.new(1, 0))
+	UIKit.stroke(frame, UIKit.Colors.Outline, 3)
+	frame.Parent = parent
+	return frame
 end
 
 return UIKit

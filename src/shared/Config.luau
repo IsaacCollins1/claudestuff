@@ -39,6 +39,9 @@ local Config = {
 	AutosaveInterval = 60,
 	LoadRetries = 3,
 
+	-- Leaderboards ------------------------------------------------------------
+	LeaderboardRefresh = 60, -- seconds between global leaderboard updates
+
 	-- Onboarding ------------------------------------------------------------
 	-- The guide arrow/beam is shown until the player has sold this many items.
 	GuideItemsSoldThreshold = 60,

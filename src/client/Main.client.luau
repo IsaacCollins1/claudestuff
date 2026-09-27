@@ -8,11 +8,14 @@ local Controllers = script.Parent.Controllers
 local Effects = require(Controllers.Effects)
 local Guide = require(Controllers.Guide)
 local HUD = require(Controllers.HUD)
+local LeaderboardPanel = require(Controllers.LeaderboardPanel)
 local Notifications = require(Controllers.Notifications)
 local Prompts = require(Controllers.Prompts)
+local ShopPanel = require(Controllers.ShopPanel)
 local SoundPlayer = require(Controllers.SoundPlayer)
 local State = require(Controllers.State)
 local StockPanel = require(Controllers.StockPanel)
+local TutorialUI = require(Controllers.TutorialUI)
 local UpgradesPanel = require(Controllers.UpgradesPanel)
 
 local player = Players.LocalPlayer
@@ -52,9 +55,20 @@ HUD.init(screen)
 Notifications.init(screen)
 UpgradesPanel.init(screen)
 StockPanel.init(screen)
-Effects.init()
+ShopPanel.init(screen)
+LeaderboardPanel.init(screen)
+Effects.init(screen)
 Prompts.init()
 Guide.init()
+TutorialUI.init(screen)
 
 HUD.UpgradesPressed:Connect(UpgradesPanel.toggle)
 HUD.StockPressed:Connect(StockPanel.toggle)
+HUD.LeadersPressed:Connect(LeaderboardPanel.toggle)
+HUD.ShopPressed:Connect(function(tab: string?)
+	if tab then
+		ShopPanel.open(tab)
+	else
+		ShopPanel.toggle()
+	end
+end)

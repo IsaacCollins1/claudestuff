@@ -6,6 +6,18 @@
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/shared"
+      },
+      "CustomModels": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "Products": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        },
+        "Props": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        }
       }
     },
     "ServerScriptService": {

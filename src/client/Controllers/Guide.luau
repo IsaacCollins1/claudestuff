@@ -10,6 +10,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Tutorial = require(Shared:WaitForChild("Tutorial"))
 local Upgrades = require(Shared:WaitForChild("Upgrades"))
 
 local HUD = require(script.Parent.HUD)
@@ -23,6 +24,7 @@ local Guide = {}
 
 local holder: Part
 local marker: BillboardGui
+local outline: Highlight
 local targetAttachment: Attachment
 local beam: Beam
 local characterAttachment: Attachment? = nil
@@ -32,7 +34,7 @@ local function isTouch(): boolean
 	return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 end
 
-type Objective = { Hint: string?, Target: BasePart? }
+type Objective = { Hint: string?, Target: BasePart?, Outline: Instance? }
 
 local function nearest(parts: { BasePart }, from: Vector3): BasePart?
 	local best: BasePart? = nil
@@ -62,44 +64,87 @@ local function cheapestUpgrade(): number?
 	return cheapest
 end
 
+local NONE: Objective = { Hint = nil, Target = nil, Outline = nil }
+
+local function emptiestShelf(): { Model: Model, Count: number, Capacity: number, Target: BasePart? }?
+	local best = nil
+	local lowest = math.huge
+	for _, shelf in StoreQuery.shelves() do
+		if shelf.Capacity > 0 and shelf.Count < shelf.Capacity then
+			local ratio = shelf.Count / shelf.Capacity
+			if ratio < lowest then
+				lowest = ratio
+				best = shelf
+			end
+		end
+	end
+	return best
+end
+
+local function boxObjective(root: BasePart, hint: string?): Objective
+	local box = nearest(StoreQuery.boxesOnPad(), root.Position)
+	if box then
+		return { Hint = hint, Target = box, Outline = box.Parent }
+	end
+	return { Hint = "🚚 The van is on its way — watch the loading bay!", Target = StoreQuery.part(StoreQuery.plot(), "LoadingBay") }
+end
+
+local function carryingObjective(root: BasePart, store: Model, press: string): Objective
+	if StoreQuery.isInside(root.Position) then
+		local shelf = emptiestShelf()
+		if shelf then
+			return { Hint = `🛒 {press} at a shelf to unpack!`, Target = shelf.Target, Outline = shelf.Model }
+		end
+		return { Hint = `📦 {press} to open the box`, Target = nil }
+	end
+	return { Hint = "🏪 Carry the box into your shop!", Target = StoreQuery.part(store, "DoorMat") }
+end
+
 local function currentObjective(root: BasePart): Objective
 	local store = StoreQuery.store()
 	if not store then
-		return { Hint = nil, Target = nil }
+		return NONE
 	end
-	local press = if isTouch() then "Tap" else "Press E to"
-
-	if player:GetAttribute("CarryingBox") == true then
-		if StoreQuery.isInside(root.Position) then
-			return { Hint = `📦 {press} open the box!`, Target = nil }
-		end
-		return { Hint = "🏪 Carry the box into your shop!", Target = StoreQuery.part(store, "DoorMat") }
-	end
-
+	local press = if isTouch() then "Tap" else "Press E"
+	local carrying = player:GetAttribute("CarryingBox") == true
 	local stock = State.inventoryTotal()
-	local shelves = StoreQuery.shelves()
-	if stock > 0 then
-		local emptiest = nil
-		local lowest = math.huge
-		for _, shelf in shelves do
-			if shelf.Capacity > 0 and shelf.Count < shelf.Capacity then
-				local ratio = shelf.Count / shelf.Capacity
-				if ratio < lowest then
-					lowest = ratio
-					emptiest = shelf
+
+	-- Tutorial steps decide the target first.
+	local index = State.tutorialStep()
+	local step = index and Tutorial.step(index)
+	if step then
+		if step.Id == "Grab" then
+			return boxObjective(root, nil)
+		elseif step.Id == "Unpack" then
+			if carrying then
+				return carryingObjective(root, store, press)
+			elseif stock > 0 then
+				local shelf = emptiestShelf()
+				if shelf then
+					return { Target = shelf.Target, Outline = shelf.Model }
 				end
 			end
+			return boxObjective(root, nil)
+		elseif step.Id == "Sell" then
+			local checkout = store:FindFirstChild("Checkout")
+			return { Target = StoreQuery.part(checkout, "Register"), Outline = checkout }
 		end
-		if emptiest then
-			return { Hint = `🛒 {press} stock your shelves!`, Target = emptiest.Target }
-		end
+		return NONE
 	end
 
-	local boxes = StoreQuery.boxesOnPad()
-	if #boxes > 0 then
-		return { Hint = "📦 Grab a delivery box!", Target = nearest(boxes, root.Position) }
+	-- After the tutorial: short hints only.
+	if carrying then
+		return carryingObjective(root, store, press)
 	end
-
+	if stock > 0 then
+		local shelf = emptiestShelf()
+		if shelf then
+			return { Hint = `🛒 {press} at a shelf to stock it!`, Target = shelf.Target }
+		end
+	end
+	if #StoreQuery.boxesOnPad() > 0 then
+		return boxObjective(root, "📦 Grab a delivery box!")
+	end
 	local data = State.Data
 	local cheapest = cheapestUpgrade()
 	if data and cheapest and data.Cash >= cheapest then
@@ -109,15 +154,7 @@ local function currentObjective(root: BasePart): Objective
 		end
 		return { Hint = "⬆️ Spend your cash on UPGRADES!", Target = nil }
 	end
-
-	local onShelves = 0
-	for _, shelf in shelves do
-		onShelves += shelf.Count
-	end
-	if stock == 0 and onShelves == 0 then
-		return { Hint = "🚚 A delivery is coming — watch the loading bay!", Target = StoreQuery.part(StoreQuery.plot(), "LoadingBay") }
-	end
-	return { Hint = nil, Target = nil }
+	return NONE
 end
 
 local function attachToCharacter(character: Model)
@@ -141,6 +178,14 @@ local function update()
 	end
 	local objective = currentObjective(root)
 	HUD.setHint(objective.Hint)
+	local outlineTarget = objective.Outline
+	if outlineTarget and State.tutorialStep() ~= nil then
+		outline.Adornee = outlineTarget
+		outline.Enabled = true
+	else
+		outline.Enabled = false
+		outline.Adornee = nil
+	end
 
 	local target = objective.Target
 	if target then
@@ -149,7 +194,7 @@ local function update()
 		local distance = (top - root.Position).Magnitude
 		marker.Enabled = distance > 6
 		local data = State.Data
-		local learning = data == nil or data.ItemsSold < Config.GuideItemsSoldThreshold
+		local learning = data == nil or data.ItemsSold < Config.GuideItemsSoldThreshold or State.tutorialStep() ~= nil
 		beam.Enabled = learning and distance > 10 and characterAttachment ~= nil
 	else
 		marker.Enabled = false
@@ -181,6 +226,17 @@ function Guide.init()
 	local arrow = UIKit.label(marker, "⬇️")
 	UIKit.textStroke(arrow, UIKit.Colors.Dark, 2)
 
+	-- Glowing outline around the tutorial's current target.
+	outline = Instance.new("Highlight")
+	outline.Name = "GuideOutline"
+	outline.FillColor = Color3.fromRGB(255, 220, 60)
+	outline.FillTransparency = 0.7
+	outline.OutlineColor = Color3.fromRGB(255, 255, 255)
+	outline.OutlineTransparency = 0
+	outline.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	outline.Enabled = false
+	outline.Parent = holder
+
 	beam = Instance.new("Beam")
 	beam.Attachment1 = targetAttachment
 	beam.Color = ColorSequence.new(UIKit.Colors.Yellow, Color3.fromRGB(255, 255, 255))
@@ -202,9 +258,10 @@ function Guide.init()
 	end
 	player.CharacterAdded:Connect(attachToCharacter)
 
-	-- Bounce the arrow.
+	-- Bounce the arrow and pulse the outline.
 	RunService.RenderStepped:Connect(function()
 		marker.StudsOffsetWorldSpace = Vector3.new(0, 1.5 + math.abs(math.sin(os.clock() * 4)) * 1.2, 0)
+		outline.FillTransparency = 0.55 + math.abs(math.sin(os.clock() * 3)) * 0.3
 	end)
 
 	task.spawn(function()

@@ -16,6 +16,7 @@ local Items = require(Shared:WaitForChild("Items"))
 local ProductVisuals = require(Shared:WaitForChild("ProductVisuals"))
 local Remotes = require(Shared:WaitForChild("Remotes"))
 
+local HUD = require(script.Parent.HUD)
 local Notifications = require(script.Parent.Notifications)
 local SoundPlayer = require(script.Parent.SoundPlayer)
 local UIKit = require(script.Parent.UIKit)
@@ -25,6 +26,51 @@ local player = Players.LocalPlayer
 local rng = Random.new()
 
 local Effects = {}
+
+local screen: ScreenGui? = nil
+local extraHandlers: { [string]: { (payload: { [string]: any }) -> () } } = {}
+
+-- Other controllers can listen to server effects too (e.g. the tutorial).
+function Effects.on(name: string, handler: (payload: { [string]: any }) -> ())
+	extraHandlers[name] = extraHandlers[name] or {}
+	table.insert(extraHandlers[name], handler)
+end
+
+local CONFETTI_COLORS = {
+	Color3.fromRGB(255, 80, 90),
+	Color3.fromRGB(255, 205, 50),
+	Color3.fromRGB(90, 220, 100),
+	Color3.fromRGB(70, 160, 255),
+	Color3.fromRGB(170, 100, 255),
+	Color3.fromRGB(255, 120, 200),
+}
+
+-- Screen confetti raining down.
+function Effects.confetti(count: number?)
+	local gui = screen
+	if not gui then
+		return
+	end
+	for _ = 1, count or 60 do
+		local piece = UIKit.new("Frame", {
+			Name = "Confetti",
+			Size = UDim2.fromOffset(rng:NextInteger(8, 14), rng:NextInteger(12, 20)),
+			Position = UDim2.new(rng:NextNumber(0.05, 0.95), 0, 0, rng:NextInteger(-80, -10)),
+			BackgroundColor3 = CONFETTI_COLORS[rng:NextInteger(1, #CONFETTI_COLORS)],
+			Rotation = rng:NextInteger(0, 360),
+			BorderSizePixel = 0,
+			ZIndex = 80,
+		}, gui)
+		local duration = rng:NextNumber(1.4, 2.4)
+		UIKit.tween(piece, duration, {
+			Position = piece.Position + UDim2.new(rng:NextNumber(-0.12, 0.12), 0, 1.05, 0),
+			Rotation = piece.Rotation + rng:NextInteger(-540, 540),
+		}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		task.delay(duration, function()
+			piece:Destroy()
+		end)
+	end
+end
 
 local function cameraPosition(): Vector3
 	local camera = workspace.CurrentCamera
@@ -201,7 +247,10 @@ local function boxOpen(payload: { [string]: any })
 			end)
 			task.wait(0.35)
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-			local destination = if mine and root and root:IsA("BasePart") then root.Position else peak + Vector3.new(0, 2, 0)
+			local destination = if typeof(payload.FlyTo) == "Vector3"
+				then payload.FlyTo
+				elseif mine and root and root:IsA("BasePart") then root.Position
+				else peak + Vector3.new(0, 2, 0)
 			local from = item:GetPivot().Position
 			animate(0.3, function(alpha)
 				local e = ease(alpha, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
@@ -227,6 +276,37 @@ local handlers: { [string]: (payload: { [string]: any }) -> () } = {}
 
 handlers.BoxOpen = boxOpen
 
+-- Chunky gold coins that pop out of the till.
+local function coinBurst(position: Vector3, count: number)
+	for _ = 1, count do
+		local coin = Instance.new("Part")
+		coin.Name = "Coin"
+		coin.Shape = Enum.PartType.Cylinder
+		coin.Size = Vector3.new(0.18, 0.8, 0.8)
+		coin.Color = Colors.Gold
+		coin.Material = Enum.Material.Metal
+		coin.Reflectance = 0.2
+		coin.Anchored = true
+		coin.CanCollide = false
+		coin.CanQuery = false
+		coin.CanTouch = false
+		coin.CastShadow = false
+		coin.CFrame = CFrame.new(position)
+		coin.Parent = workspace
+		local velocity = Vector3.new(rng:NextNumber(-4, 4), rng:NextNumber(9, 14), rng:NextNumber(-4, 4))
+		local spin = rng:NextNumber(8, 16)
+		task.spawn(function()
+			animate(0.8, function(alpha)
+				local t = alpha * 0.8
+				local offset = velocity * t + Vector3.new(0, -26 * t * t, 0)
+				coin.CFrame = CFrame.new(position + offset) * CFrame.Angles(0, t * spin, math.rad(90))
+				coin.Transparency = math.max(0, alpha - 0.6) * 2.5
+			end)
+			coin:Destroy()
+		end)
+	end
+end
+
 handlers.Sale = function(payload)
 	local position = payload.Position
 	if typeof(position) ~= "Vector3" or not near(position, 140) then
@@ -234,6 +314,13 @@ handlers.Sale = function(payload)
 	end
 	local amount = if type(payload.Amount) == "number" then payload.Amount else 0
 	local mine = payload.OwnerId == player.UserId
+	coinBurst(position, if payload.Rare then 8 else 4)
+	if mine then
+		HUD.flyCoins(position, amount)
+	end
+	if type(payload.Multiplier) == "number" and payload.Multiplier > 1 then
+		floatText(position + Vector3.new(0, 2, 0), `x{payload.Multiplier} CASH!`, Colors.Yellow, 0.9)
+	end
 	if payload.Rare then
 		floatText(position, "+" .. Format.money(amount), Colors.Gold, 2.2, true)
 		burst(position, { Colors.Gold, Colors.White }, 30, 14)
@@ -299,6 +386,15 @@ handlers.Delivery = function()
 	-- The banner already plays a sound; nothing extra needed.
 end
 
+handlers.Purchase = function()
+	SoundPlayer.play("Purchase")
+	Effects.confetti(70)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		burst(root.Position, { Colors.Gold, Colors.White, Colors.Green }, 60, 22)
+	end
+end
+
 -- Products popping onto shelves --------------------------------------------------------
 
 local function animateStock(item: Instance)
@@ -344,8 +440,8 @@ local function updateRainbows()
 	for _, model in CollectionService:GetTagged(ProductVisuals.RainbowTag) do
 		if model:IsA("Model") and model:IsDescendantOf(workspace) and near(model:GetPivot().Position, 100) then
 			local index = 0
-			for _, part in model:GetChildren() do
-				if part:IsA("BasePart") then
+			for _, part in model:GetDescendants() do
+				if part:IsA("BasePart") and part.Transparency < 1 then
 					index += 1
 					part.Color = Color3.fromHSV((t * 0.45 + index * 0.17) % 1, 0.75, 1)
 				end
@@ -354,11 +450,21 @@ local function updateRainbows()
 	end
 end
 
-function Effects.init()
+function Effects.init(gui: ScreenGui)
+	screen = gui
 	Remotes.event("Effect").OnClientEvent:Connect(function(name: string, payload: { [string]: any })
+		if type(payload) ~= "table" then
+			return
+		end
 		local handler = handlers[name]
-		if handler and type(payload) == "table" then
+		if handler then
 			task.spawn(handler, payload)
+		end
+		local extras = extraHandlers[name]
+		if extras then
+			for _, extra in extras do
+				task.spawn(extra, payload)
+			end
 		end
 	end)
 

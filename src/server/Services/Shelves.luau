@@ -6,11 +6,14 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
+local BoxVisual = require(Shared.BoxVisual)
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
 local ProductVisuals = require(Shared.ProductVisuals)
 local StoreLevels = require(Shared.StoreLevels)
 
+local Boxes = require(script.Parent.Boxes)
+local Events = require(script.Parent.Events)
 local Net = require(script.Parent.Net)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
@@ -138,9 +141,9 @@ function Shelves.placeItem(shelf: Shelf, key: string, pop: boolean): boolean
 end
 
 -- Which item to put on the shelf next. Sticks with the current product so
--- rows look neat, prefers the player's selected product, then whatever the
--- shelf already holds, then whatever the player has most of.
-local function nextKey(player: Player, shelf: Shelf, current: string?): string?
+-- rows look neat, prefers the box just unpacked, then the player's selected
+-- product, then whatever the shelf already holds, then whatever they have most of.
+local function nextKey(player: Player, shelf: Shelf, current: string?, prefer: string?): string?
 	local data = PlayerData.get(player)
 	if not data then
 		return nil
@@ -162,6 +165,9 @@ local function nextKey(player: Player, shelf: Shelf, current: string?): string?
 		if count > 0 then
 			local productId = Items.product(key).Id
 			local score = count
+			if productId == prefer then
+				score += 1e10
+			end
 			if productId == data.SelectedProduct then
 				score += 1e9
 			end
@@ -182,7 +188,7 @@ end
 
 -- Moves up to `maxItems` products from the player's inventory onto the shelf,
 -- one at a time with a short delay so it visibly fills up. Returns how many.
-function Shelves.stockFromInventory(player: Player, shelf: Shelf, maxItems: number, delay: number): number
+function Shelves.stockFromInventory(player: Player, shelf: Shelf, maxItems: number, delay: number, prefer: string?): number
 	if shelf.Busy then
 		return 0
 	end
@@ -191,7 +197,7 @@ function Shelves.stockFromInventory(player: Player, shelf: Shelf, maxItems: numb
 	local current: string? = nil
 	local ok, err = pcall(function()
 		while placed < maxItems and shelf.Store.Alive and Shelves.free(shelf) > 0 do
-			local key = nextKey(player, shelf, current)
+			local key = nextKey(player, shelf, current, prefer)
 			if not key or not PlayerData.takeItem(player, key, 1) then
 				break
 			end
@@ -215,27 +221,42 @@ end
 
 local function onStockPrompt(player: Player, shelf: Shelf)
 	local store = shelf.Store
-	if player ~= store.Owner or not store.Alive then
+	if player ~= store.Owner or not store.Alive or shelf.Busy then
 		return
 	end
+	local prefer: string? = nil
 	local session = Registry.session(player)
 	if session and session.Carried then
-		Net.notify(player, "Info", "📦 Open your box first!")
-		return
-	end
-	if PlayerData.inventoryTotal(player) == 0 then
+		-- Carrying a box: unpack it right here, products fly onto the shelf.
+		local unpackCFrame = shelf.CFrame
+			* CFrame.new(0, BoxVisual.Size.Y / 2, -(StoreLevels.ShelfDepth / 2 + 2.4))
+			* CFrame.Angles(0, math.pi, 0)
+		local shelfMiddle = (shelf.CFrame * CFrame.new(0, 2.5, 0)).Position
+		local contents, productId = Boxes.unpackCarried(player, unpackCFrame, shelfMiddle)
+		if not contents then
+			return
+		end
+		prefer = productId
+		if Shelves.free(shelf) == 0 then
+			Net.notify(player, "Info", "📦 Shelf full — the rest went to your stock room")
+			return
+		end
+		shelf.Busy = true
+		task.wait(0.6) -- let the box burst open first
+		shelf.Busy = false
+		if not store.Alive then
+			return
+		end
+	elseif PlayerData.inventoryTotal(player) == 0 then
 		Net.notify(player, "Info", "📦 No stock! Grab a delivery box")
 		return
-	end
-	if Shelves.free(shelf) == 0 then
+	elseif Shelves.free(shelf) == 0 then
 		Net.notify(player, "Info", "✔ This shelf is already full!")
 		return
 	end
-	if shelf.Busy then
-		return
-	end
-	local placed = Shelves.stockFromInventory(player, shelf, math.huge, Config.StockItemDelay)
+	local placed = Shelves.stockFromInventory(player, shelf, math.huge, Config.StockItemDelay, prefer)
 	if placed > 0 then
+		Events.ShelfStocked:Fire(player, placed)
 		Net.effectTo(player, "Stocked", {
 			Position = (shelf.CFrame * CFrame.new(0, StoreLevels.ShelfHeight + 2, 0)).Position,
 			Count = placed,

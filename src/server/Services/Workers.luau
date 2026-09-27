@@ -11,6 +11,7 @@ local Upgrades = require(Shared.Upgrades)
 
 local NpcBuilder = require(script.Parent.Parent.Builders.NpcBuilder)
 local NpcMotion = require(script.Parent.NpcMotion)
+local Perks = require(script.Parent.Perks)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
 local Shelves = require(script.Parent.Shelves)
@@ -123,7 +124,7 @@ function Workers.refresh(store: Store)
 	if not data or not store.Alive then
 		return
 	end
-	local wanted = Upgrades.workerCount(data.Upgrades.Workers)
+	local wanted = Upgrades.workerCount(data.Upgrades.Workers) + Perks.extraWorkers(store.Owner)
 	while #store.Workers < wanted do
 		spawnWorker(store, #store.Workers + 1)
 	end

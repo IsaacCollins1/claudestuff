@@ -76,6 +76,32 @@ function Build.ball(
 	return part
 end
 
+-- Stretched sphere (egg / pillow / bush shapes) that fills `size`: a block
+-- with a sphere mesh, since Ball parts are always perfectly round.
+function Build.ellipsoid(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local part = Build.part(nil, name, size, cframe, color, material)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = part
+	part.Parent = parent
+	return part
+end
+
+-- Wedge: the slope runs from the bottom front (-Z) up to the top back (+Z).
+function Build.wedge(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): WedgePart
+	local part = Instance.new("WedgePart")
+	part.Name = name
+	part.Anchored = true
+	part.Size = size
+	part.CFrame = cframe
+	part.Color = color
+	part.Material = material or Enum.Material.SmoothPlastic
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = parent
+	return part
+end
+
 -- Purely visual: players and NPCs walk through it, raycasts ignore it.
 function Build.decor(part: BasePart)
 	part.CanCollide = false

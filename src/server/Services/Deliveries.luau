@@ -14,6 +14,7 @@ local TruckBuilder = require(script.Parent.Parent.Builders.TruckBuilder)
 local WorldBuilder = require(script.Parent.Parent.Builders.WorldBuilder)
 local Boxes = require(script.Parent.Boxes)
 local Net = require(script.Parent.Net)
+local Perks = require(script.Parent.Perks)
 local PlayerData = require(script.Parent.PlayerData)
 local Registry = require(script.Parent.Registry)
 
@@ -30,14 +31,16 @@ local function tweenTo(part: BasePart, target: CFrame, duration: number, directi
 	task.wait(duration)
 end
 
-function Deliveries.deliver(session: Session)
+-- `purchased` deliveries (Robux shop) always arrive: boxes that don't fit on
+-- the bay go straight into the stock room.
+function Deliveries.deliver(session: Session, purchased: boolean?)
 	local player = session.Player
 	local data = PlayerData.get(player)
 	if not data or not session.Alive then
 		return
 	end
-	local wanted = Upgrades.boxesPerDelivery(data.Upgrades.DeliverySize)
-	if #Boxes.freeSpots(session) == 0 then
+	local wanted = Upgrades.boxesPerDelivery(data.Upgrades.DeliverySize) + Perks.extraBoxes(player)
+	if #Boxes.freeSpots(session) == 0 and not purchased then
 		Net.notify(player, "Info", "📦 Loading bay full! Grab your boxes")
 		return
 	end
@@ -69,6 +72,12 @@ function Deliveries.deliver(session: Session)
 		-- Out of the side door facing the plot.
 		Boxes.spawn(session, free[index], stopCFrame * CFrame.new(3.4, 2.5, 1 - index * 0.4))
 		task.wait(0.22)
+	end
+	if purchased and wanted > #free then
+		for _ = 1, wanted - #free do
+			Boxes.grantBox(session)
+		end
+		Net.notify(player, "Info", "📦 Bay full — extra boxes went to your stock room")
 	end
 
 	task.wait(0.9)
