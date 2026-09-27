@@ -157,9 +157,9 @@ local function placeOnSpot(info: BoxInfo, spot: number)
 end
 
 -- The most valuable product deliveries can currently contain.
-local function bestProduct(storeLevel: number): Products.Product
+local function bestProduct(level: number): Products.Product
 	local best = Products.List[1]
-	for _, product in Products.poolForLevel(storeLevel) do
+	for _, product in Products.poolForLevel(level) do
 		if product.SellPrice > best.SellPrice then
 			best = product
 		end
@@ -173,8 +173,8 @@ local function rollBox(player: Player, special: string?): (Products.Product?, nu
 	if not data then
 		return nil, 0
 	end
-	local storeLevel = data.Upgrades.StoreSize
-	local product = if special == "Golden" then bestProduct(storeLevel) else Products.rollForBox(rng, storeLevel)
+	-- Deliveries only contain products the player's level has unlocked.
+	local product = if special == "Golden" then bestProduct(data.Level) else Products.rollForBox(rng, data.Level)
 	local multiplier = Upgrades.quantityMultiplier(data.Upgrades.DeliverySize) * Perks.deliveryQuantityMultiplier(player)
 	local quantity = math.max(1, math.floor(rng:NextInteger(product.BoxMin, product.BoxMax) * multiplier + 0.5))
 	return product, quantity
@@ -448,6 +448,9 @@ function Boxes.dropCrate(session: Session)
 end
 
 function Boxes.clear(session: Session)
+	if session.Carried then
+		detach(session.Carried)
+	end
 	for model in session.Boxes do
 		model:Destroy()
 	end

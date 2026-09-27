@@ -1,11 +1,12 @@
 --!strict
--- Game pass ownership and timed boosts (from the Robux shop), plus the
--- gameplay multipliers they give. Gameplay code only reads from here; the
--- Monetization service writes to it.
+-- Game pass ownership and timed boosts (from the Robux shop), rebirth perks,
+-- and the gameplay multipliers they all give. Gameplay code only reads from
+-- here; the Monetization and Progression services write the state.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Monetization = require(ReplicatedStorage.Shared.Monetization)
+local Progression = require(ReplicatedStorage.Shared.Progression)
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -58,12 +59,27 @@ end
 
 local passes = Monetization.Passes
 
+-- Level of a rebirth perk (bought with Rebirth Tokens).
+function Perks.rebirthPerk(player: Player, id: string): number
+	local data = PlayerData.get(player)
+	return if data then data.RebirthPerks[id] or 0 else 0
+end
+
+-- Rebirths (+50% each) and the 2x Cash pass.
 function Perks.cashMultiplier(player: Player): number
-	return if Perks.has(player, "DoubleCash") then passes.DoubleCash.Multiplier or 2 else 1
+	local data = PlayerData.get(player)
+	local rebirth = Progression.rebirthMultiplier(if data then data.Rebirths else 0)
+	return rebirth * (if Perks.has(player, "DoubleCash") then passes.DoubleCash.Multiplier or 2 else 1)
 end
 
 function Perks.luckMultiplier(player: Player): number
-	return if Perks.has(player, "LuckyCharm") then passes.LuckyCharm.Multiplier or 2 else 1
+	local pass = if Perks.has(player, "LuckyCharm") then passes.LuckyCharm.Multiplier or 2 else 1
+	return pass * Progression.luckMultiplier(Perks.rebirthPerk(player, "LuckyBoxes"))
+end
+
+-- Express Vans perk: shorter wait between deliveries.
+function Perks.deliveryIntervalMultiplier(player: Player): number
+	return Progression.deliveryIntervalMultiplier(Perks.rebirthPerk(player, "ExpressVans"))
 end
 
 function Perks.extraBoxes(player: Player): number
@@ -71,16 +87,18 @@ function Perks.extraBoxes(player: Player): number
 end
 
 function Perks.deliveryQuantityMultiplier(player: Player): number
-	return if Perks.has(player, "BigDeliveries") then 1.25 else 1
+	local pass = if Perks.has(player, "BigDeliveries") then 1.25 else 1
+	return pass * Progression.boxQuantityMultiplier(Perks.rebirthPerk(player, "BulkBoxes"))
 end
 
 function Perks.extraWorkers(player: Player): number
 	return if Perks.has(player, "VIP") then 1 else 0
 end
 
--- Customer Rush: customers arrive 3x as often and more fit in the shop.
+-- Customer Rush (3x as often) and the Busy Street perk.
 function Perks.customerIntervalMultiplier(player: Player): number
-	return if Perks.boostActive(player, "CustomerRush") then 1 / 3 else 1
+	local rush = if Perks.boostActive(player, "CustomerRush") then 1 / 3 else 1
+	return rush * Progression.customerIntervalMultiplier(Perks.rebirthPerk(player, "BusyStreet"))
 end
 
 function Perks.extraCustomers(player: Player): number

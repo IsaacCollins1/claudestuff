@@ -1319,7 +1319,7 @@ export type Product = {
 	Rarity: string,
 	BuyPrice: number, -- wholesale value (used for store value)
 	SellPrice: number, -- what a customer pays
-	UnlockLevel: number, -- store level needed before deliveries contain it
+	UnlockLevel: number, -- player level (Progression) needed before deliveries contain it
 	BoxMin: number, -- units per delivery box
 	BoxMax: number,
 	Shape: string, -- visual builder in ProductVisuals
@@ -1352,62 +1352,62 @@ Products.List = {
 	},
 	{
 		Id = "Chocolate", Name = "Chocolate", Icon = "🍫", Category = "Snacks", Rarity = "Common",
-		BuyPrice = 2, SellPrice = 6, UnlockLevel = 1, BoxMin = 8, BoxMax = 12,
+		BuyPrice = 2, SellPrice = 6, UnlockLevel = 2, BoxMin = 8, BoxMax = 12,
 		Shape = "Bar", Color = rgb(110, 62, 36), Accent = rgb(120, 60, 200),
 	},
 	{
 		Id = "Cola", Name = "Cola", Icon = "🥤", Category = "Drinks", Rarity = "Common",
-		BuyPrice = 3, SellPrice = 8, UnlockLevel = 1, BoxMin = 8, BoxMax = 12,
+		BuyPrice = 3, SellPrice = 8, UnlockLevel = 3, BoxMin = 8, BoxMax = 12,
 		Shape = "Can", Color = rgb(225, 30, 40), Accent = rgb(245, 245, 245),
 	},
 	{
 		Id = "EnergyDrink", Name = "Energy Drink", Icon = "⚡", Category = "Drinks", Rarity = "Uncommon",
-		BuyPrice = 5, SellPrice = 12, UnlockLevel = 1, BoxMin = 6, BoxMax = 10,
+		BuyPrice = 5, SellPrice = 12, UnlockLevel = 4, BoxMin = 6, BoxMax = 10,
 		Shape = "Can", Color = rgb(40, 40, 50), Accent = rgb(120, 255, 60),
 	},
 	{
 		Id = "Cereal", Name = "Cereal", Icon = "🥣", Category = "Groceries", Rarity = "Uncommon",
-		BuyPrice = 6, SellPrice = 15, UnlockLevel = 1, BoxMin = 5, BoxMax = 8,
+		BuyPrice = 6, SellPrice = 15, UnlockLevel = 6, BoxMin = 5, BoxMax = 8,
 		Shape = "Cereal", Color = rgb(255, 140, 30), Accent = rgb(255, 255, 255),
 	},
 	{
 		Id = "ToiletRoll", Name = "Toilet Roll", Icon = "🧻", Category = "Household", Rarity = "Uncommon",
-		BuyPrice = 7, SellPrice = 18, UnlockLevel = 2, BoxMin = 5, BoxMax = 8,
+		BuyPrice = 7, SellPrice = 18, UnlockLevel = 8, BoxMin = 5, BoxMax = 8,
 		Shape = "Roll", Color = rgb(250, 250, 250), Accent = rgb(140, 200, 255),
 	},
 	{
 		Id = "Pizza", Name = "Pizza", Icon = "🍕", Category = "Frozen", Rarity = "Rare",
-		BuyPrice = 9, SellPrice = 22, UnlockLevel = 2, BoxMin = 4, BoxMax = 7,
+		BuyPrice = 9, SellPrice = 22, UnlockLevel = 10, BoxMin = 4, BoxMax = 7,
 		Shape = "Pizza", Color = rgb(245, 235, 215), Accent = rgb(220, 50, 40),
 	},
 	{
 		Id = "Cleaning", Name = "Cleaning Spray", Icon = "🧴", Category = "Household", Rarity = "Rare",
-		BuyPrice = 12, SellPrice = 30, UnlockLevel = 2, BoxMin = 4, BoxMax = 6,
+		BuyPrice = 12, SellPrice = 30, UnlockLevel = 12, BoxMin = 4, BoxMax = 6,
 		Shape = "Spray", Color = rgb(90, 220, 200), Accent = rgb(255, 255, 255),
 	},
 	{
 		Id = "Headphones", Name = "Headphones", Icon = "🎧", Category = "Electronics", Rarity = "Rare",
-		BuyPrice = 25, SellPrice = 60, UnlockLevel = 2, BoxMin = 2, BoxMax = 4,
+		BuyPrice = 25, SellPrice = 60, UnlockLevel = 15, BoxMin = 2, BoxMax = 4,
 		Shape = "Headphones", Color = rgb(35, 35, 45), Accent = rgb(255, 80, 160),
 	},
 	{
 		Id = "Smartphone", Name = "Smartphone", Icon = "📱", Category = "Electronics", Rarity = "Epic",
-		BuyPrice = 60, SellPrice = 150, UnlockLevel = 3, BoxMin = 2, BoxMax = 3,
+		BuyPrice = 60, SellPrice = 150, UnlockLevel = 18, BoxMin = 2, BoxMax = 3,
 		Shape = "Phone", Color = rgb(30, 30, 38), Accent = rgb(80, 180, 255),
 	},
 	{
 		Id = "Console", Name = "Games Console", Icon = "🎮", Category = "Electronics", Rarity = "Epic",
-		BuyPrice = 100, SellPrice = 250, UnlockLevel = 3, BoxMin = 1, BoxMax = 3,
+		BuyPrice = 100, SellPrice = 250, UnlockLevel = 22, BoxMin = 1, BoxMax = 3,
 		Shape = "Console", Color = rgb(245, 245, 250), Accent = rgb(60, 110, 255),
 	},
 	{
 		Id = "Laptop", Name = "Laptop", Icon = "💻", Category = "Electronics", Rarity = "Epic",
-		BuyPrice = 180, SellPrice = 450, UnlockLevel = 3, BoxMin = 1, BoxMax = 2,
+		BuyPrice = 180, SellPrice = 450, UnlockLevel = 26, BoxMin = 1, BoxMax = 2,
 		Shape = "Laptop", Color = rgb(190, 195, 205), Accent = rgb(90, 200, 255),
 	},
 	{
 		Id = "Television", Name = "Television", Icon = "📺", Category = "Electronics", Rarity = "Legendary",
-		BuyPrice = 280, SellPrice = 700, UnlockLevel = 3, BoxMin = 1, BoxMax = 2,
+		BuyPrice = 280, SellPrice = 700, UnlockLevel = 30, BoxMin = 1, BoxMax = 2,
 		Shape = "TV", Color = rgb(25, 25, 30), Accent = rgb(90, 160, 255),
 	},
 } :: { Product }
@@ -1419,11 +1419,11 @@ for index, product in Products.List do
 	Products.Index[product.Id] = index
 end
 
--- Products that deliveries can contain at a given store level.
-function Products.poolForLevel(storeLevel: number): { Product }
+-- Products that deliveries can contain at a given player level.
+function Products.poolForLevel(level: number): { Product }
 	local pool = {}
 	for _, product in Products.List do
-		if product.UnlockLevel <= storeLevel then
+		if product.UnlockLevel <= level then
 			table.insert(pool, product)
 		end
 	end
@@ -1431,8 +1431,8 @@ function Products.poolForLevel(storeLevel: number): { Product }
 end
 
 -- Weighted random product for a delivery box.
-function Products.rollForBox(rng: Random, storeLevel: number): Product
-	local pool = Products.poolForLevel(storeLevel)
+function Products.rollForBox(rng: Random, level: number): Product
+	local pool = Products.poolForLevel(level)
 	local total = 0
 	for _, product in pool do
 		total += Products.Rarities[product.Rarity].Weight
@@ -1452,6 +1452,229 @@ return Products
         </Properties>
       </Item>
       <Item class="ModuleScript" referent="21">
+        <Properties>
+          <string name="Name">Progression</string>
+          <string name="Source"><![CDATA[--!strict
+-- Long-term progression, shared by the server (rules) and client (menus):
+--
+--   * Level      XP from selling and unpacking. Every product has an unlock
+--                level (Products.UnlockLevel); levelling up also pays a cash
+--                reward.
+--   * Stars      Selling a product earns stars (mastery); each star makes that
+--                product sell for 10% more.
+--   * Rebirth    Trade a pile of cash for a permanent cash bonus and Rebirth
+--                Tokens. Cash, upgrades, shop size and stock reset; levels,
+--                unlocks, stars, perks and game passes are kept.
+--   * Perks      Permanent upgrades bought with Rebirth Tokens.
+
+local Format = require(script.Parent.Format)
+local Products = require(script.Parent.Products)
+
+local Progression = {}
+
+-- Level -------------------------------------------------------------------------
+
+Progression.MaxLevel = 100
+Progression.XpPerBox = 2
+
+function Progression.xpToNext(level: number): number
+	return math.floor(30 * level ^ 1.5)
+end
+
+-- XP for selling one unit: pricier products are worth more.
+function Progression.xpForSale(product: Products.Product): number
+	return math.max(1, math.floor(math.sqrt(product.SellPrice) + 0.5))
+end
+
+function Progression.levelReward(level: number): number
+	return 25 * level
+end
+
+function Progression.isUnlocked(product: Products.Product, level: number): boolean
+	return product.UnlockLevel <= level
+end
+
+-- Products that unlock exactly at `level`.
+function Progression.unlocksAt(level: number): { Products.Product }
+	local list = {}
+	for _, product in Products.List do
+		if product.UnlockLevel == level then
+			table.insert(list, product)
+		end
+	end
+	return list
+end
+
+-- The next product still to unlock after `level`.
+function Progression.nextUnlock(level: number): Products.Product?
+	local best: Products.Product? = nil
+	for _, product in Products.List do
+		if product.UnlockLevel > level and (not best or product.UnlockLevel < best.UnlockLevel) then
+			best = product
+		end
+	end
+	return best
+end
+
+-- Stars (product mastery) ---------------------------------------------------------
+
+Progression.StarThresholds = { 20, 75, 200, 500, 1200 } -- units sold for each star
+Progression.StarBonus = 0.1 -- +10% sell price per star
+Progression.MaxStars = #Progression.StarThresholds
+
+function Progression.stars(sold: number): number
+	local stars = 0
+	for index, threshold in Progression.StarThresholds do
+		if sold >= threshold then
+			stars = index
+		end
+	end
+	return stars
+end
+
+function Progression.starMultiplier(sold: number): number
+	return 1 + Progression.StarBonus * Progression.stars(sold)
+end
+
+-- Units needed for the next star (nil when maxed).
+function Progression.nextStarAt(sold: number): number?
+	for _, threshold in Progression.StarThresholds do
+		if sold < threshold then
+			return threshold
+		end
+	end
+	return nil
+end
+
+-- Rebirth -------------------------------------------------------------------------
+
+Progression.RebirthBaseCost = 50000
+Progression.RebirthCostGrowth = 2.5
+Progression.RebirthCashBonus = 0.5 -- +50% cash from sales per rebirth
+
+function Progression.rebirthCost(rebirths: number): number
+	return math.floor(Progression.RebirthBaseCost * Progression.RebirthCostGrowth ^ rebirths)
+end
+
+function Progression.rebirthMultiplier(rebirths: number): number
+	return 1 + Progression.RebirthCashBonus * rebirths
+end
+
+-- Tokens earned for reaching rebirth number `rebirths` (every 5th is a bonus).
+function Progression.tokensFor(rebirths: number): number
+	return if rebirths % 5 == 0 then 2 else 1
+end
+
+-- Rebirth perks -------------------------------------------------------------------
+
+export type PerkDef = {
+	Id: string,
+	Name: string,
+	Icon: string,
+	Color: Color3,
+	Description: string,
+	Costs: { number }, -- tokens for each level
+	Effect: (level: number) -> string,
+}
+
+local rgb = Color3.fromRGB
+
+Progression.PerkOrder = { "HeadStart", "ExpressVans", "LuckyBoxes", "BusyStreet", "BulkBoxes" }
+
+Progression.Perks = {
+	HeadStart = {
+		Id = "HeadStart",
+		Name = "Head Start",
+		Icon = "💰",
+		Color = rgb(90, 210, 90),
+		Description = "Start every rebirth with cash",
+		Costs = { 1, 1, 2, 2, 3 },
+		Effect = function(level: number): string
+			return `{Format.money(1000 * level)} to start`
+		end,
+	},
+	ExpressVans = {
+		Id = "ExpressVans",
+		Name = "Express Vans",
+		Icon = "🚚",
+		Color = rgb(60, 150, 255),
+		Description = "Deliveries arrive sooner",
+		Costs = { 1, 1, 2, 2, 3 },
+		Effect = function(level: number): string
+			return `{math.floor((1 - 0.92 ^ level) * 100 + 0.5)}% shorter wait`
+		end,
+	},
+	LuckyBoxes = {
+		Id = "LuckyBoxes",
+		Name = "Lucky Boxes",
+		Icon = "🍀",
+		Color = rgb(150, 90, 255),
+		Description = "More Golden, Rainbow & Giant items",
+		Costs = { 1, 2, 2, 3, 3 },
+		Effect = function(level: number): string
+			return `+{10 * level}% luck`
+		end,
+	},
+	BusyStreet = {
+		Id = "BusyStreet",
+		Name = "Busy Street",
+		Icon = "🏃",
+		Color = rgb(255, 150, 40),
+		Description = "Customers come more often",
+		Costs = { 1, 1, 2, 2, 3 },
+		Effect = function(level: number): string
+			return `+{8 * level}% customers`
+		end,
+	},
+	BulkBoxes = {
+		Id = "BulkBoxes",
+		Name = "Bulk Boxes",
+		Icon = "📦",
+		Color = rgb(205, 150, 95),
+		Description = "More items in every delivery box",
+		Costs = { 1, 2, 2, 3, 3 },
+		Effect = function(level: number): string
+			return `+{10 * level}% items`
+		end,
+	},
+} :: { [string]: PerkDef }
+
+function Progression.perkMaxLevel(id: string): number
+	local def = Progression.Perks[id]
+	return if def then #def.Costs else 0
+end
+
+-- Token cost of the next level of a perk (nil when maxed or unknown).
+function Progression.perkCost(id: string, level: number): number?
+	local def = Progression.Perks[id]
+	return def and def.Costs[level + 1]
+end
+
+function Progression.headStartCash(level: number): number
+	return 1000 * level
+end
+
+function Progression.deliveryIntervalMultiplier(level: number): number
+	return 0.92 ^ level
+end
+
+function Progression.luckMultiplier(level: number): number
+	return 1 + 0.1 * level
+end
+
+function Progression.customerIntervalMultiplier(level: number): number
+	return 1 / (1 + 0.08 * level)
+end
+
+function Progression.boxQuantityMultiplier(level: number): number
+	return 1 + 0.1 * level
+end
+
+return Progression
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="22">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[--!strict
@@ -1477,7 +1700,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local EVENTS = { "DataUpdate", "Notify", "Effect", "SelectProduct", "SkipTutorial", "Leaderboards" }
-local FUNCTIONS = { "BuyUpgrade", "GetData", "TestPurchase", "GetLeaderboards" }
+local FUNCTIONS = { "BuyUpgrade", "GetData", "TestPurchase", "GetLeaderboards", "Rebirth", "BuyRebirthPerk" }
 
 local FOLDER_NAME = "Remotes"
 
@@ -1517,7 +1740,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="22">
+      <Item class="ModuleScript" referent="23">
         <Properties>
           <string name="Name">Signal</string>
           <string name="Source"><![CDATA[--!strict
@@ -1569,7 +1792,7 @@ return Signal
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="23">
+      <Item class="ModuleScript" referent="24">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[--!strict
@@ -1625,7 +1848,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="24">
+      <Item class="ModuleScript" referent="25">
         <Properties>
           <string name="Name">StoreLevels</string>
           <string name="Source"><![CDATA[--!strict
@@ -1963,7 +2186,7 @@ return StoreLevels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="25">
+      <Item class="ModuleScript" referent="26">
         <Properties>
           <string name="Name">Tutorial</string>
           <string name="Source"><![CDATA[--!strict
@@ -2026,7 +2249,7 @@ return Tutorial
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="26">
+      <Item class="ModuleScript" referent="27">
         <Properties>
           <string name="Name">Upgrades</string>
           <string name="Source"><![CDATA[--!strict
@@ -2224,7 +2447,7 @@ return Upgrades
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="27">
+      <Item class="ModuleScript" referent="28">
         <Properties>
           <string name="Name">Variants</string>
           <string name="Source"><![CDATA[--!strict
@@ -2293,19 +2516,19 @@ return Variants
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="28">
+  <Item class="ServerScriptService" referent="29">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="29">
+    <Item class="Folder" referent="30">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="30">
+      <Item class="Folder" referent="31">
         <Properties>
           <string name="Name">Builders</string>
         </Properties>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">LeaderboardBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -2437,7 +2660,7 @@ return LeaderboardBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">NpcBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -2872,7 +3095,7 @@ return NpcBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">PropBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -3316,7 +3539,7 @@ return PropBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="35">
           <Properties>
             <string name="Name">StoreBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -3718,7 +3941,7 @@ return StoreBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="35">
+        <Item class="ModuleScript" referent="36">
           <Properties>
             <string name="Name">TruckBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -3879,7 +4102,7 @@ return TruckBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="36">
+        <Item class="ModuleScript" referent="37">
           <Properties>
             <string name="Name">WorldBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -4186,7 +4409,7 @@ return WorldBuilder
           </Properties>
         </Item>
       </Item>
-      <Item class="Script" referent="37">
+      <Item class="Script" referent="38">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -4204,6 +4427,7 @@ local Leaderboards = require(Services.Leaderboards)
 local MonetizationService = require(Services.MonetizationService)
 local Net = require(Services.Net)
 local PlayerData = require(Services.PlayerData)
+local ProgressionService = require(Services.ProgressionService)
 local Stores = require(Services.Stores)
 local TutorialService = require(Services.TutorialService)
 local UpgradeService = require(Services.UpgradeService)
@@ -4312,6 +4536,7 @@ Leaderboards.buildSigns(workspace:WaitForChild("World"), WorldBuilder.leaderboar
 Leaderboards.init()
 UpgradeService.init()
 TutorialService.init()
+ProgressionService.init()
 MonetizationService.init()
 
 Players.PlayerAdded:Connect(onPlayerAdded)
@@ -4326,11 +4551,11 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="38">
+      <Item class="Folder" referent="39">
         <Properties>
           <string name="Name">Services</string>
         </Properties>
-        <Item class="ModuleScript" referent="39">
+        <Item class="ModuleScript" referent="40">
           <Properties>
             <string name="Name">Boxes</string>
             <string name="Source"><![CDATA[--!strict
@@ -4492,9 +4717,9 @@ local function placeOnSpot(info: BoxInfo, spot: number)
 end
 
 -- The most valuable product deliveries can currently contain.
-local function bestProduct(storeLevel: number): Products.Product
+local function bestProduct(level: number): Products.Product
 	local best = Products.List[1]
-	for _, product in Products.poolForLevel(storeLevel) do
+	for _, product in Products.poolForLevel(level) do
 		if product.SellPrice > best.SellPrice then
 			best = product
 		end
@@ -4508,8 +4733,8 @@ local function rollBox(player: Player, special: string?): (Products.Product?, nu
 	if not data then
 		return nil, 0
 	end
-	local storeLevel = data.Upgrades.StoreSize
-	local product = if special == "Golden" then bestProduct(storeLevel) else Products.rollForBox(rng, storeLevel)
+	-- Deliveries only contain products the player's level has unlocked.
+	local product = if special == "Golden" then bestProduct(data.Level) else Products.rollForBox(rng, data.Level)
 	local multiplier = Upgrades.quantityMultiplier(data.Upgrades.DeliverySize) * Perks.deliveryQuantityMultiplier(player)
 	local quantity = math.max(1, math.floor(rng:NextInteger(product.BoxMin, product.BoxMax) * multiplier + 0.5))
 	return product, quantity
@@ -4783,6 +5008,9 @@ function Boxes.dropCrate(session: Session)
 end
 
 function Boxes.clear(session: Session)
+	if session.Carried then
+		detach(session.Carried)
+	end
 	for model in session.Boxes do
 		model:Destroy()
 	end
@@ -4798,7 +5026,7 @@ return Boxes
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="40">
+        <Item class="ModuleScript" referent="41">
           <Properties>
             <string name="Name">Customers</string>
             <string name="Source"><![CDATA[--!strict
@@ -4810,6 +5038,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
+local Progression = require(Shared.Progression)
 local StoreLevels = require(Shared.StoreLevels)
 local Upgrades = require(Shared.Upgrades)
 
@@ -4835,6 +5064,7 @@ type Customer = {
 	ReservedShelf: Shelf?,
 	Node: string,
 	Alive: boolean,
+	Run: number, -- the owner's rebirth count when this customer arrived
 }
 
 local Customers = {}
@@ -4914,21 +5144,22 @@ local function checkout(customer: Customer)
 	task.wait(Config.CheckoutTime)
 	NpcMotion.check(customer.Walker)
 
-	-- Pay!
+	-- Pay! Products with stars sell for more; rebirths and 2x Cash multiply it all.
+	local owner = store.Owner
+	local data = PlayerData.get(owner)
 	local total = 0
 	local rare = false
 	for _, key in customer.Items do
-		total += Items.sellPrice(key)
+		local sold = if data then data.Sold[Items.product(key).Id] or 0 else 0
+		total += Items.sellPrice(key) * Progression.starMultiplier(sold)
 		rare = rare or Items.isRare(key)
 	end
-	local owner = store.Owner
 	local multiplier = Perks.cashMultiplier(owner)
-	total *= multiplier
-	local data = PlayerData.get(owner)
+	total = math.floor(total * multiplier)
 	if data then
 		data.Stats.ItemsSold += #customer.Items
 		PlayerData.addCash(owner, total)
-		Events.Sale:Fire(owner, total, #customer.Items)
+		Events.Sale:Fire(owner, total, table.clone(customer.Items))
 	end
 	Net.effectAll("Sale", {
 		Position = store.Register.Position + Vector3.new(0, 2.2, 0),
@@ -5003,9 +5234,13 @@ local function cleanup(customer: Customer)
 	if queueIndex then
 		table.remove(store.Queue, queueIndex)
 	end
-	-- Anything still in the basket goes back into the owner's stock.
-	for _, key in customer.Items do
-		PlayerData.addItem(store.Owner, key, 1)
+	-- Anything still in the basket goes back into the owner's stock
+	-- (unless the owner has rebirthed since: that stock belonged to the old run).
+	local data = PlayerData.get(store.Owner)
+	if data and data.Rebirths == customer.Run then
+		for _, key in customer.Items do
+			PlayerData.addItem(store.Owner, key, 1)
+		end
 	end
 	table.clear(customer.Items)
 	if store.Customers[customer] then
@@ -5046,6 +5281,7 @@ function Customers.spawn(store: Store)
 		ReservedShelf = nil,
 		Node = "Spawn",
 		Alive = true,
+		Run = (PlayerData.get(store.Owner) or { Rebirths = 0 }).Rebirths,
 	}
 	store.Customers[customer] = true
 	store.CustomerCount += 1
@@ -5094,7 +5330,7 @@ return Customers
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="41">
+        <Item class="ModuleScript" referent="42">
           <Properties>
             <string name="Name">Deliveries</string>
             <string name="Source"><![CDATA[--!strict
@@ -5190,7 +5426,7 @@ function Deliveries.start(session: Session)
 		player:SetAttribute("NextDeliveryAt", workspace:GetServerTimeNow() + Config.FirstDeliveryDelay)
 		task.wait(Config.FirstDeliveryDelay)
 		while session.Alive do
-			local interval = rng:NextNumber(Config.DeliveryIntervalMin, Config.DeliveryIntervalMax)
+			local interval = rng:NextNumber(Config.DeliveryIntervalMin, Config.DeliveryIntervalMax) * Perks.deliveryIntervalMultiplier(player)
 			player:SetAttribute("NextDeliveryAt", workspace:GetServerTimeNow() + interval)
 			task.spawn(function()
 				local ok, err = pcall(function()
@@ -5209,7 +5445,7 @@ return Deliveries
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="42">
+        <Item class="ModuleScript" referent="43">
           <Properties>
             <string name="Name">Events</string>
             <string name="Source"><![CDATA[--!strict
@@ -5227,17 +5463,21 @@ local Events = {
 	BoxOpened = Signal.new() :: Signal.Signal<Player, number>,
 	-- (player, items placed) — only when the player stocks, not workers
 	ShelfStocked = Signal.new() :: Signal.Signal<Player, number>,
-	-- (shop owner, cash earned, items sold)
-	Sale = Signal.new() :: Signal.Signal<Player, number, number>,
+	-- (shop owner, cash earned, item keys sold)
+	Sale = Signal.new() :: Signal.Signal<Player, number, { string }>,
 	-- (player, upgrade id, new level)
 	UpgradeBought = Signal.new() :: Signal.Signal<Player, string, number>,
+	-- (player, new level)
+	LevelUp = Signal.new() :: Signal.Signal<Player, number>,
+	-- (player, rebirth count)
+	Rebirth = Signal.new() :: Signal.Signal<Player, number>,
 }
 
 return Events
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="44">
           <Properties>
             <string name="Name">Leaderboards</string>
             <string name="Source"><![CDATA[--!strict
@@ -5478,7 +5718,7 @@ return Leaderboards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="44">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">MonetizationService</string>
             <string name="Source"><![CDATA[--!strict
@@ -5693,7 +5933,7 @@ return MonetizationService
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="45">
+        <Item class="ModuleScript" referent="46">
           <Properties>
             <string name="Name">Net</string>
             <string name="Source"><![CDATA[--!strict
@@ -5738,7 +5978,7 @@ return Net
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="46">
+        <Item class="ModuleScript" referent="47">
           <Properties>
             <string name="Name">NpcMotion</string>
             <string name="Source"><![CDATA[--!strict
@@ -5851,17 +6091,18 @@ return NpcMotion
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="47">
+        <Item class="ModuleScript" referent="48">
           <Properties>
             <string name="Name">Perks</string>
             <string name="Source"><![CDATA[--!strict
--- Game pass ownership and timed boosts (from the Robux shop), plus the
--- gameplay multipliers they give. Gameplay code only reads from here; the
--- Monetization service writes to it.
+-- Game pass ownership and timed boosts (from the Robux shop), rebirth perks,
+-- and the gameplay multipliers they all give. Gameplay code only reads from
+-- here; the Monetization and Progression services write the state.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Monetization = require(ReplicatedStorage.Shared.Monetization)
+local Progression = require(ReplicatedStorage.Shared.Progression)
 
 local PlayerData = require(script.Parent.PlayerData)
 
@@ -5914,12 +6155,27 @@ end
 
 local passes = Monetization.Passes
 
+-- Level of a rebirth perk (bought with Rebirth Tokens).
+function Perks.rebirthPerk(player: Player, id: string): number
+	local data = PlayerData.get(player)
+	return if data then data.RebirthPerks[id] or 0 else 0
+end
+
+-- Rebirths (+50% each) and the 2x Cash pass.
 function Perks.cashMultiplier(player: Player): number
-	return if Perks.has(player, "DoubleCash") then passes.DoubleCash.Multiplier or 2 else 1
+	local data = PlayerData.get(player)
+	local rebirth = Progression.rebirthMultiplier(if data then data.Rebirths else 0)
+	return rebirth * (if Perks.has(player, "DoubleCash") then passes.DoubleCash.Multiplier or 2 else 1)
 end
 
 function Perks.luckMultiplier(player: Player): number
-	return if Perks.has(player, "LuckyCharm") then passes.LuckyCharm.Multiplier or 2 else 1
+	local pass = if Perks.has(player, "LuckyCharm") then passes.LuckyCharm.Multiplier or 2 else 1
+	return pass * Progression.luckMultiplier(Perks.rebirthPerk(player, "LuckyBoxes"))
+end
+
+-- Express Vans perk: shorter wait between deliveries.
+function Perks.deliveryIntervalMultiplier(player: Player): number
+	return Progression.deliveryIntervalMultiplier(Perks.rebirthPerk(player, "ExpressVans"))
 end
 
 function Perks.extraBoxes(player: Player): number
@@ -5927,16 +6183,18 @@ function Perks.extraBoxes(player: Player): number
 end
 
 function Perks.deliveryQuantityMultiplier(player: Player): number
-	return if Perks.has(player, "BigDeliveries") then 1.25 else 1
+	local pass = if Perks.has(player, "BigDeliveries") then 1.25 else 1
+	return pass * Progression.boxQuantityMultiplier(Perks.rebirthPerk(player, "BulkBoxes"))
 end
 
 function Perks.extraWorkers(player: Player): number
 	return if Perks.has(player, "VIP") then 1 else 0
 end
 
--- Customer Rush: customers arrive 3x as often and more fit in the shop.
+-- Customer Rush (3x as often) and the Busy Street perk.
 function Perks.customerIntervalMultiplier(player: Player): number
-	return if Perks.boostActive(player, "CustomerRush") then 1 / 3 else 1
+	local rush = if Perks.boostActive(player, "CustomerRush") then 1 / 3 else 1
+	return rush * Progression.customerIntervalMultiplier(Perks.rebirthPerk(player, "BusyStreet"))
 end
 
 function Perks.extraCustomers(player: Player): number
@@ -5947,7 +6205,7 @@ return Perks
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="48">
+        <Item class="ModuleScript" referent="49">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[--!strict
@@ -5967,6 +6225,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
+local Products = require(Shared.Products)
+local Progression = require(Shared.Progression)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
@@ -5995,6 +6255,13 @@ export type Data = {
 	Tutorial: TutorialState,
 	Boosts: { [string]: number }, -- boost key -> os.time() it ends
 	Receipts: { string }, -- recent Robux purchase ids (so a purchase is never granted twice)
+	-- Progression (kept through rebirths)
+	Level: number,
+	Xp: number, -- towards the next level
+	Sold: { [string]: number }, -- units sold per product id (stars)
+	Rebirths: number,
+	RebirthTokens: number,
+	RebirthPerks: { [string]: number },
 }
 
 type Profile = {
@@ -6043,6 +6310,14 @@ local function isAccessError(message: string): boolean
 		or string.find(lower, "not allowed", 1, true) ~= nil
 end
 
+local function defaultPerks(): { [string]: number }
+	local perks = {}
+	for id in Progression.Perks do
+		perks[id] = 0
+	end
+	return perks
+end
+
 local function defaultData(): Data
 	return {
 		Version = DATA_VERSION,
@@ -6056,6 +6331,12 @@ local function defaultData(): Data
 		Tutorial = { Step = 1, Done = false },
 		Boosts = {},
 		Receipts = {},
+		Level = 1,
+		Xp = 0,
+		Sold = {},
+		Rebirths = 0,
+		RebirthTokens = 0,
+		RebirthPerks = defaultPerks(),
 	}
 end
 
@@ -6136,6 +6417,30 @@ local function reconcile(raw: unknown): Data
 			if type(receipt) == "string" and #data.Receipts < 100 then
 				table.insert(data.Receipts, receipt)
 			end
+		end
+	end
+
+	if source.Level ~= nil then
+		data.Level = cleanNumber(source.Level, 1, 1, Progression.MaxLevel)
+		data.Xp = cleanNumber(source.Xp, 0, 0, 1e12)
+	else
+		-- Saves from before levels: start at the level that unlocks the products
+		-- their shop size used to give them.
+		local legacy = { 1, 10, 22 }
+		data.Level = legacy[math.clamp(data.Upgrades.StoreSize, 1, #legacy)]
+	end
+	if type(source.Sold) == "table" then
+		for id, count in source.Sold do
+			if type(id) == "string" and Products.ById[id] then
+				data.Sold[id] = cleanNumber(count, 0, 0, 1e12)
+			end
+		end
+	end
+	data.Rebirths = cleanNumber(source.Rebirths, 0, 0, 1e6)
+	data.RebirthTokens = cleanNumber(source.RebirthTokens, 0, 0, 1e6)
+	if type(source.RebirthPerks) == "table" then
+		for id, def in Progression.Perks do
+			data.RebirthPerks[id] = cleanNumber(source.RebirthPerks[id], 0, 0, #def.Costs)
 		end
 	end
 	return data
@@ -6411,6 +6716,12 @@ function PlayerData.snapshot(player: Player): { [string]: any }?
 		Saving = PlayerData.canSave(),
 		Tutorial = { Step = data.Tutorial.Step, Done = data.Tutorial.Done },
 		BoostEnds = boostEnds,
+		Level = data.Level,
+		Xp = data.Xp,
+		Sold = table.clone(data.Sold),
+		Rebirths = data.Rebirths,
+		RebirthTokens = data.RebirthTokens,
+		RebirthPerks = table.clone(data.RebirthPerks),
 	}
 	for _, extra in PlayerData.SnapshotExtras do
 		extra(player, snapshot)
@@ -6428,7 +6739,7 @@ function PlayerData.updateLeaderstats(player: Player)
 	if not leaderstats then
 		local folder = Instance.new("Folder")
 		folder.Name = "leaderstats"
-		for _, name in { "Value", "Cash", "Sold" } do
+		for _, name in { "Value", "Rebirths", "Cash", "Sold" } do
 			local stat = Instance.new("IntValue")
 			stat.Name = name
 			stat.Parent = folder
@@ -6438,6 +6749,7 @@ function PlayerData.updateLeaderstats(player: Player)
 	end
 	local values: { [string]: number } = {
 		Value = math.floor(PlayerData.storeValue(player)),
+		Rebirths = data.Rebirths,
 		Cash = data.Cash,
 		Sold = data.Stats.ItemsSold,
 	}
@@ -6471,7 +6783,199 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="50">
+          <Properties>
+            <string name="Name">ProgressionService</string>
+            <string name="Source"><![CDATA[--!strict
+-- Levels, product stars, rebirths and rebirth perks (rules in Shared/Progression).
+--
+--   * XP comes from selling (pricier products give more) and unpacking boxes.
+--     Levelling up unlocks products for deliveries and pays a cash reward.
+--   * Every unit sold counts towards that product's stars (+10% price each).
+--   * Rebirth resets the run (cash, upgrades, shop size, stock) for a
+--     permanent cash bonus and Rebirth Tokens, which buy perks.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage.Shared
+local Config = require(Shared.Config)
+local Format = require(Shared.Format)
+local Items = require(Shared.Items)
+local Products = require(Shared.Products)
+local Progression = require(Shared.Progression)
+local Remotes = require(Shared.Remotes)
+local Upgrades = require(Shared.Upgrades)
+
+local Boxes = require(script.Parent.Boxes)
+local Events = require(script.Parent.Events)
+local Net = require(script.Parent.Net)
+local PlayerData = require(script.Parent.PlayerData)
+local Registry = require(script.Parent.Registry)
+local Stores = require(script.Parent.Stores)
+
+local ProgressionService = {}
+
+local lastRebirth: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+
+function ProgressionService.addXp(player: Player, amount: number)
+	local data = PlayerData.get(player)
+	if not data or amount <= 0 then
+		return
+	end
+	data.Xp += math.floor(amount)
+	while data.Level < Progression.MaxLevel and data.Xp >= Progression.xpToNext(data.Level) do
+		data.Xp -= Progression.xpToNext(data.Level)
+		data.Level += 1
+		local reward = Progression.levelReward(data.Level)
+		PlayerData.giveCash(player, reward)
+		local unlocked = {}
+		for _, product in Progression.unlocksAt(data.Level) do
+			table.insert(unlocked, product.Id)
+		end
+		Net.effectTo(player, "LevelUp", { Level = data.Level, Reward = reward, Unlocked = unlocked })
+		Events.LevelUp:Fire(player, data.Level)
+	end
+	if data.Level >= Progression.MaxLevel then
+		data.Xp = 0
+	end
+	PlayerData.markDirty(player)
+end
+
+-- XP and stars for everything a customer bought.
+local function recordSale(player: Player, keys: { string })
+	local data = PlayerData.get(player)
+	if not data then
+		return
+	end
+	local xp = 0
+	local starsBefore: { [string]: number } = {}
+	for _, key in keys do
+		local product = Items.product(key)
+		local sold = data.Sold[product.Id] or 0
+		if starsBefore[product.Id] == nil then
+			starsBefore[product.Id] = Progression.stars(sold)
+		end
+		data.Sold[product.Id] = sold + 1
+		xp += Progression.xpForSale(product)
+	end
+	for id, before in starsBefore do
+		local after = Progression.stars(data.Sold[id])
+		if after > before then
+			local product = Products.ById[id]
+			Net.effectTo(player, "Star", { Product = id, Stars = after })
+			Net.notify(
+				player,
+				"Rare",
+				`{product.Icon} {string.upper(product.Name)} {string.rep("⭐", after)}  sells for +{math.floor(after * Progression.StarBonus * 100 + 0.5)}%!`
+			)
+		end
+	end
+	ProgressionService.addXp(player, xp)
+end
+
+-- Rebirth -----------------------------------------------------------------------------
+
+function ProgressionService.rebirth(player: Player): (boolean, string)
+	local data = PlayerData.get(player)
+	local session = Registry.session(player)
+	if not data or not session then
+		return false, "Try again in a moment"
+	end
+	local now = os.clock()
+	if lastRebirth[player] and now - lastRebirth[player] < 3 then
+		return false, "Slow down!"
+	end
+	local cost = Progression.rebirthCost(data.Rebirths)
+	if data.Cash < cost then
+		return false, `You need {Format.money(cost)} to rebirth`
+	end
+	lastRebirth[player] = now
+
+	-- Tear down the shop first (it remembers shelf stock), then reset the run.
+	Boxes.clear(session)
+	Stores.close(session)
+	data.Rebirths += 1
+	local tokens = Progression.tokensFor(data.Rebirths)
+	data.RebirthTokens += tokens
+	data.Cash = Config.StartingCash + Progression.headStartCash(data.RebirthPerks.HeadStart or 0)
+	data.Upgrades = Upgrades.defaultLevels()
+	data.Inventory = {}
+	data.Shelves = {}
+	data.SelectedProduct = nil
+	PlayerData.markDirty(player)
+
+	local store = Stores.open(session)
+	local multiplier = Progression.rebirthMultiplier(data.Rebirths)
+	local signPosition = if store then (session.PlotCFrame * store.Layout.SignCFrame).Position else session.PlotCFrame.Position
+	Net.effectAll("Rebirth", {
+		OwnerId = player.UserId,
+		Rebirths = data.Rebirths,
+		Multiplier = multiplier,
+		Tokens = tokens,
+		Position = signPosition,
+	})
+	-- (The owner's client shows its own big celebration popup.)
+	Events.Rebirth:Fire(player, data.Rebirths)
+	-- Back to the front of the (new) shop.
+	local character = player.Character
+	local spawn = Stores.spawnCFrame(player)
+	if character and spawn then
+		character:PivotTo(spawn)
+	end
+	return true, `Rebirth {data.Rebirths}! Cash x{multiplier}`
+end
+
+function ProgressionService.buyPerk(player: Player, id: unknown): (boolean, string)
+	local data = PlayerData.get(player)
+	if not data or type(id) ~= "string" or not Progression.Perks[id] then
+		return false, "Unknown perk"
+	end
+	local level = data.RebirthPerks[id] or 0
+	local cost = Progression.perkCost(id, level)
+	if not cost then
+		return false, "Already maxed!"
+	end
+	if data.RebirthTokens < cost then
+		return false, `You need {cost} Rebirth Token{if cost == 1 then "" else "s"}`
+	end
+	data.RebirthTokens -= cost
+	data.RebirthPerks[id] = level + 1
+	PlayerData.markDirty(player)
+	Net.effectTo(player, "PerkBought", { Id = id, Level = level + 1 })
+	return true, `{Progression.Perks[id].Name} level {level + 1}!`
+end
+
+function ProgressionService.init()
+	Events.Sale:Connect(function(player: Player, _cash: number, keys: { string })
+		recordSale(player, keys)
+	end)
+	Events.BoxOpened:Connect(function(player: Player)
+		ProgressionService.addXp(player, Progression.XpPerBox)
+	end)
+
+	Remotes.func("Rebirth").OnServerInvoke = function(player: Player)
+		local ok, success, message = pcall(ProgressionService.rebirth, player)
+		if not ok then
+			warn("[FillTheStore] Rebirth failed: " .. tostring(success))
+			return false, "Something went wrong"
+		end
+		return success, message
+	end
+	Remotes.func("BuyRebirthPerk").OnServerInvoke = function(player: Player, id: unknown)
+		local ok, success, message = pcall(ProgressionService.buyPerk, player, id)
+		if not ok then
+			warn("[FillTheStore] Perk purchase failed: " .. tostring(success))
+			return false, "Something went wrong"
+		end
+		return success, message
+	end
+end
+
+return ProgressionService
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">Registry</string>
             <string name="Source"><![CDATA[--!strict
@@ -6561,7 +7065,7 @@ return Registry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="52">
           <Properties>
             <string name="Name">Shelves</string>
             <string name="Source"><![CDATA[--!strict
@@ -7000,7 +7504,7 @@ return Shelves
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="51">
+        <Item class="ModuleScript" referent="53">
           <Properties>
             <string name="Name">Stores</string>
             <string name="Source"><![CDATA[--!strict
@@ -7194,7 +7698,7 @@ return Stores
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="54">
           <Properties>
             <string name="Name">TutorialService</string>
             <string name="Source"><![CDATA[--!strict
@@ -7265,7 +7769,7 @@ return TutorialService
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="53">
+        <Item class="ModuleScript" referent="55">
           <Properties>
             <string name="Name">UpgradeService</string>
             <string name="Source"><![CDATA[--!strict
@@ -7304,15 +7808,6 @@ local function apply(player: Player, id: string, level: number)
 			local signPosition = (session.PlotCFrame * newStore.Layout.SignCFrame).Position
 			Net.effectAll("StoreExpanded", { Position = signPosition, OwnerId = player.UserId })
 			Net.notify(player, "Expand", "🏪 STORE EXPANDED! " .. string.upper(StoreLevels.getSpec(level).Name))
-			local unlocked = {}
-			for _, product in Products.List do
-				if product.UnlockLevel == level then
-					table.insert(unlocked, product.Icon)
-				end
-			end
-			if #unlocked > 0 then
-				Net.notify(player, "Info", "New products in deliveries: " .. table.concat(unlocked, " "))
-			end
 		end
 	elseif id == "Workers" then
 		if store then
@@ -7382,7 +7877,7 @@ return UpgradeService
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="54">
+        <Item class="ModuleScript" referent="56">
           <Properties>
             <string name="Name">Workers</string>
             <string name="Source"><![CDATA[--!strict
@@ -7524,38 +8019,38 @@ return Workers
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="55">
+  <Item class="SoundService" referent="57">
     <Properties>
       <string name="Name">SoundService</string>
       <bool name="RespectFilteringEnabled">true</bool>
     </Properties>
   </Item>
-  <Item class="StarterGui" referent="56">
+  <Item class="StarterGui" referent="58">
     <Properties>
       <string name="Name">StarterGui</string>
       <bool name="ResetPlayerGuiOnSpawn">false</bool>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="57">
+  <Item class="StarterPlayer" referent="59">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <float name="CameraMaxZoomDistance">90</float>
       <float name="CameraMinZoomDistance">6</float>
       <float name="CharacterWalkSpeed">20</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="58">
+    <Item class="StarterPlayerScripts" referent="60">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="59">
+      <Item class="Folder" referent="61">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="Folder" referent="60">
+        <Item class="Folder" referent="62">
           <Properties>
             <string name="Name">Controllers</string>
           </Properties>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[--!strict
@@ -8018,6 +8513,59 @@ handlers.TutorialStep = function()
 	end
 end
 
+-- Level up: a bigger column of stars (the ITEMS menu shows the popup).
+handlers.LevelUp = function(payload)
+	local _, feet = playerSpot()
+	if feet then
+		Particles.ring(feet, Color3.fromRGB(190, 140, 255))
+		Particles.emit("Rise", feet, 26, { Color3.fromRGB(190, 140, 255), Particles.Colors.Gold, Particles.Colors.White })
+		Particles.cameraPunch(2)
+	end
+	SoundPlayer.play("Upgrade", 1.2)
+end
+
+-- A product earned a star.
+handlers.Star = function()
+	local root = playerSpot()
+	if root then
+		Particles.emit("Sparkle", root.Position + Vector3.new(0, 2.5, 0), 14, { Particles.Colors.Gold, Particles.Colors.White })
+	end
+	SoundPlayer.play("Rare", 1.2)
+end
+
+-- Rebirth: fireworks over the rebuilt shop (everyone nearby sees them).
+handlers.Rebirth = function(payload)
+	local position = payload.Position
+	if typeof(position) ~= "Vector3" then
+		return
+	end
+	local mine = payload.OwnerId == player.UserId
+	for index = 1, if mine then 5 else 3 do
+		task.delay((index - 1) * 0.3, function()
+			SoundPlayer.play("Whoosh", 0.8 + index * 0.08, position)
+			local color = Particles.Rainbow[(index - 1) % #Particles.Rainbow + 1]
+			Particles.firework(position + Vector3.new((index - 3) * 5, 2, 0), color, function()
+				SoundPlayer.play("Pop", 0.85 + index * 0.08, position)
+			end)
+		end)
+	end
+	if mine then
+		Particles.cameraPunch(5)
+		local _, feet = playerSpot()
+		if feet then
+			Particles.ring(feet, Color3.fromRGB(255, 120, 200))
+			Particles.emit("Rise", feet, 30, Particles.Rainbow)
+		end
+	end
+end
+
+handlers.PerkBought = function()
+	local _, feet = playerSpot()
+	if feet then
+		Particles.emit("Rise", feet, 16, { Color3.fromRGB(110, 180, 255), Particles.Colors.White })
+	end
+end
+
 -- Products popping onto shelves --------------------------------------------------------
 
 local function animateStock(item: Instance)
@@ -8120,7 +8668,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">Guide</string>
               <string name="Source"><![CDATA[--!strict
@@ -8406,13 +8954,13 @@ return Guide
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[--!strict
 -- The always-on simulator HUD:
---   * top-left: cash (with a "+" to buy more) and store value
---   * left: big chunky SHOP / UPGRADE / STOCK / TOP buttons
+--   * top-left: cash (with a "+" to buy more), store value and level / XP
+--   * left: big chunky SHOP / UPGRADE / STOCK / TOP / ITEMS / REBIRTH buttons
 --   * top-centre: delivery timer with a progress bar
 --   * top-right: active boosts and owned passes
 --   * bottom: a short hint when there's something to do
@@ -8428,6 +8976,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
 local Monetization = require(Shared:WaitForChild("Monetization"))
+local Progression = require(Shared:WaitForChild("Progression"))
 local Signal = require(Shared:WaitForChild("Signal"))
 local Upgrades = require(Shared:WaitForChild("Upgrades"))
 
@@ -8445,6 +8994,8 @@ HUD.UpgradesPressed = Signal.new() :: Signal.Signal<>
 HUD.StockPressed = Signal.new() :: Signal.Signal<>
 HUD.ShopPressed = Signal.new() :: Signal.Signal<string?>
 HUD.LeadersPressed = Signal.new() :: Signal.Signal<>
+HUD.UnlocksPressed = Signal.new() :: Signal.Signal<>
+HUD.RebirthPressed = Signal.new() :: Signal.Signal<>
 
 local screen: ScreenGui
 local cashPill: Frame
@@ -8459,6 +9010,12 @@ local hintLabel: TextLabel
 local stockBadge: Frame
 local stockBadgeLabel: TextLabel
 local upgradesAlert: Frame
+local rebirthAlert: Frame
+local levelPill: Frame
+local levelBadgeLabel: TextLabel
+local levelFill: Frame
+local levelText: TextLabel
+local shownLevel = 0
 local boostsColumn: Frame
 local buttons: { [string]: UIKit.Chunky } = {}
 
@@ -8513,6 +9070,90 @@ local function buildCurrency()
 	}, Colors.Outline, 2)
 end
 
+-- Level / XP bar ------------------------------------------------------------------
+
+local function buildLevel()
+	levelPill = UIKit.pill(screen, {
+		Name = "Level",
+		Position = UDim2.fromOffset(40, 118),
+		Size = UDim2.fromOffset(200, 30),
+		BackgroundTransparency = 0.2,
+	})
+	local track = UIKit.new("Frame", {
+		Name = "Track",
+		Position = UDim2.fromOffset(26, 7),
+		Size = UDim2.new(1, -36, 1, -14),
+		BackgroundColor3 = Colors.Dark,
+		ZIndex = 2,
+	}, levelPill)
+	UIKit.corner(track, UDim.new(1, 0))
+	levelFill = UIKit.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Colors.Purple,
+		ZIndex = 3,
+	}, track)
+	UIKit.corner(levelFill, UDim.new(1, 0))
+	UIKit.gradient(levelFill, Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 170, 255))
+	levelText = UIKit.title(levelPill, "0 / 30 XP", {
+		Name = "Xp",
+		Position = UDim2.fromOffset(26, 3),
+		Size = UDim2.new(1, -36, 1, -6),
+		ZIndex = 4,
+	}, Colors.Outline, 2)
+	-- Round level badge on the left, like the cash coin.
+	local badge = UIKit.new("Frame", {
+		Name = "LevelBadge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(40, 133),
+		Size = UDim2.fromOffset(44, 44),
+		BackgroundColor3 = Colors.Purple,
+		ZIndex = 5,
+	}, screen)
+	UIKit.corner(badge, UDim.new(1, 0))
+	UIKit.stroke(badge, Colors.Outline, 3)
+	UIKit.gradient(badge, Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 160, 240))
+	UIKit.title(badge, "LV", {
+		Position = UDim2.fromOffset(6, 3),
+		Size = UDim2.new(1, -12, 0, 12),
+		ZIndex = 6,
+	}, Colors.PurpleDark, 1.5)
+	levelBadgeLabel = UIKit.title(badge, "1", {
+		Name = "Number",
+		Position = UDim2.fromOffset(4, 14),
+		Size = UDim2.new(1, -8, 0, 24),
+		ZIndex = 6,
+	}, Colors.PurpleDark, 2)
+	-- Tap the bar to see what unlocks next.
+	local hit = UIKit.new("TextButton", {
+		Name = "Open",
+		Text = "",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 7,
+	}, levelPill)
+	hit.Activated:Connect(function()
+		SoundPlayer.play("Click")
+		HUD.UnlocksPressed:Fire()
+	end)
+end
+
+local function refreshLevel()
+	local data = State.Data
+	if not data or not data.Level then
+		return
+	end
+	local needed = Progression.xpToNext(data.Level)
+	local fraction = if data.Level >= Progression.MaxLevel then 1 else math.clamp(data.Xp / needed, 0, 1)
+	UIKit.tween(levelFill, 0.3, { Size = UDim2.fromScale(fraction, 1) })
+	levelText.Text = if data.Level >= Progression.MaxLevel then "MAX LEVEL" else `{Format.commas(data.Xp)} / {Format.commas(needed)} XP`
+	levelBadgeLabel.Text = tostring(data.Level)
+	if shownLevel ~= 0 and data.Level > shownLevel then
+		UIKit.pop(levelPill, 0.2)
+	end
+	shownLevel = data.Level
+end
+
 -- Button grid -------------------------------------------------------------------
 
 local function bigButton(name: string, icon: string, text: string, color: Color3, order: number, onClick: () -> ()): UIKit.Chunky
@@ -8521,7 +9162,8 @@ local function bigButton(name: string, icon: string, text: string, color: Color3
 	local chunky = UIKit.chunky(screen, {
 		Name = name,
 		Size = UDim2.fromOffset(92, 92),
-		Position = UDim2.new(0, 14 + column * 104, 0.5, -110 + row * 108),
+		-- From the top (not the middle) so it never slides under the level bar on phones.
+		Position = UDim2.fromOffset(14 + column * 104, 168 + row * 108),
 		Color = color,
 		Icon = icon,
 		Text = text,
@@ -8562,8 +9204,15 @@ local function buildButtons()
 	bigButton("Leaders", "🏆", "TOP", Colors.Purple, 4, function()
 		HUD.LeadersPressed:Fire()
 	end)
+	bigButton("Unlocks", "📖", "ITEMS", Colors.Blue:Lerp(Colors.Purple, 0.5), 5, function()
+		HUD.UnlocksPressed:Fire()
+	end)
+	local rebirth = bigButton("Rebirth", "🔁", "REBIRTH", Colors.Pink, 6, function()
+		HUD.RebirthPressed:Fire()
+	end)
 	stockBadge, stockBadgeLabel = UIKit.badge(stock.Button, Colors.Red, "0")
 	upgradesAlert = UIKit.badge(upgrades.Button, Colors.Yellow, "!")
+	rebirthAlert = UIKit.badge(rebirth.Button, Colors.Yellow, "!")
 end
 
 -- Delivery timer -------------------------------------------------------------------
@@ -8743,6 +9392,13 @@ function HUD.refreshBadges()
 		UIKit.pop(buttons.Upgrades.Button, 0.2)
 	end
 	upgradesAlert.Visible = affordable
+
+	local canRebirth = data ~= nil and data.Rebirths ~= nil and data.Cash >= Progression.rebirthCost(data.Rebirths)
+	if canRebirth and not rebirthAlert.Visible then
+		UIKit.pop(buttons.Rebirth.Button, 0.25)
+	end
+	rebirthAlert.Visible = canRebirth
+	refreshLevel()
 end
 
 function HUD.pulseUpgrades()
@@ -8829,6 +9485,7 @@ end
 function HUD.init(gui: ScreenGui)
 	screen = gui
 	buildCurrency()
+	buildLevel()
 	buildButtons()
 	buildDelivery()
 	buildBoosts()
@@ -8875,7 +9532,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">LeaderboardPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -9025,7 +9682,7 @@ return LeaderboardPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">Notifications</string>
               <string name="Source"><![CDATA[--!strict
@@ -9231,7 +9888,7 @@ return Notifications
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">Particles</string>
               <string name="Source"><![CDATA[--!strict
@@ -9707,7 +10364,7 @@ return Particles
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">Prompts</string>
               <string name="Source"><![CDATA[--!strict
@@ -9839,7 +10496,519 @@ return Prompts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="70">
+            <Properties>
+              <string name="Name">RebirthPanel</string>
+              <string name="Source"><![CDATA[--!strict
+-- 🔁 REBIRTH menu.
+--   * Rebirth tab: what you have, what the next rebirth gives, how close you
+--     are, what you keep and what resets, and a REBIRTH button that asks you
+--     to tap again to confirm.
+--   * Perks tab: spend Rebirth Tokens (🔷) on permanent perks.
+-- The server does the actual rebirth; this also plays the celebration.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Format = require(Shared:WaitForChild("Format"))
+local Progression = require(Shared:WaitForChild("Progression"))
+local Remotes = require(Shared:WaitForChild("Remotes"))
+
+local Effects = require(script.Parent.Effects)
+local SoundPlayer = require(script.Parent.SoundPlayer)
+local State = require(script.Parent.State)
+local UIKit = require(script.Parent.UIKit)
+local Window = require(script.Parent.Window)
+
+local Colors = UIKit.Colors
+local TOKEN = "🔷"
+
+local RebirthPanel = {}
+
+type StatCard = { Frame: Frame, Value: TextLabel }
+type PerkRow = {
+	Frame: Frame,
+	Level: TextLabel,
+	Effect: TextLabel,
+	Pips: { Frame },
+	Buy: UIKit.Chunky,
+	Color: Color3,
+}
+
+local screen: ScreenGui
+local window: Window.Window
+local pages: { [string]: GuiObject } = {}
+local rebirthsCard: StatCard
+local bonusCard: StatCard
+local tokensCard: StatCard
+local progressFill: Frame
+local progressLabel: TextLabel
+local rebirthButton: UIKit.Chunky
+local perkRows: { [string]: PerkRow } = {}
+local confirming = false
+local confirmToken = 0
+local busy = false
+
+local TABS: { Window.Tab } = {
+	{ Key = "Rebirth", Text = "🔁 REBIRTH", Color = Colors.Pink },
+	{ Key = "Perks", Text = TOKEN .. " PERKS", Color = Colors.Blue },
+}
+
+local function statCard(parent: Instance, name: string, title: string, color: Color3, x: number): StatCard
+	local frame = UIKit.new("Frame", {
+		Name = name,
+		Position = UDim2.new(x, 6, 0, 0),
+		Size = UDim2.new(1 / 3, -12, 0, 92),
+		BackgroundColor3 = color,
+		ZIndex = 23,
+	}, parent)
+	UIKit.corner(frame, UDim.new(0, 18))
+	UIKit.stroke(frame, Colors.Outline, 3)
+	UIKit.gradient(frame, Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 170, 185))
+	UIKit.title(frame, title, {
+		Size = UDim2.new(1, -16, 0, 22),
+		Position = UDim2.fromOffset(8, 8),
+		ZIndex = 24,
+	}, UIKit.darken(color, 0.55), 2)
+	local value = UIKit.title(frame, "0", {
+		Name = "Value",
+		Size = UDim2.new(1, -16, 0, 46),
+		Position = UDim2.fromOffset(8, 36),
+		ZIndex = 24,
+	}, Colors.Outline, 3)
+	return { Frame = frame, Value = value }
+end
+
+local function listBox(parent: Instance, title: string, lines: { string }, color: Color3, x: number)
+	local frame = UIKit.new("Frame", {
+		Position = UDim2.new(x, 6, 0, 150),
+		Size = UDim2.new(0.5, -12, 0, 104),
+		BackgroundColor3 = UIKit.darken(color, 0.55),
+		BackgroundTransparency = 0.2,
+		ZIndex = 23,
+	}, parent)
+	UIKit.corner(frame, UDim.new(0, 14))
+	UIKit.stroke(frame, color, 2)
+	UIKit.title(frame, title, {
+		Size = UDim2.new(1, -16, 0, 22),
+		Position = UDim2.fromOffset(8, 6),
+		TextColor3 = color,
+		ZIndex = 24,
+	}, Colors.Outline, 2)
+	UIKit.label(frame, table.concat(lines, "\n"), {
+		Size = UDim2.new(1, -20, 1, -36),
+		Position = UDim2.fromOffset(10, 30),
+		TextColor3 = Colors.White,
+		TextWrapped = true,
+		ZIndex = 24,
+	})
+end
+
+local function resetConfirm()
+	confirming = false
+	confirmToken += 1
+end
+
+local function refreshRebirth()
+	local data = State.Data
+	if not data or data.Rebirths == nil then
+		return
+	end
+	local cost = Progression.rebirthCost(data.Rebirths)
+	local now = Progression.rebirthMultiplier(data.Rebirths)
+	local after = Progression.rebirthMultiplier(data.Rebirths + 1)
+	rebirthsCard.Value.Text = `🔁 {data.Rebirths}`
+	bonusCard.Value.Text = `x{now} ➜ x{after}`
+	tokensCard.Value.Text = `{TOKEN} {data.RebirthTokens}`
+	local fraction = math.clamp(data.Cash / cost, 0, 1)
+	UIKit.tween(progressFill, 0.3, { Size = UDim2.fromScale(fraction, 1) })
+	progressLabel.Text = `{Format.money(data.Cash)} / {Format.money(cost)}`
+	local label = rebirthButton.Text
+	local affordable = data.Cash >= cost
+	local tokens = Progression.tokensFor(data.Rebirths + 1)
+	if not affordable then
+		resetConfirm()
+		rebirthButton.SetColor(Colors.GreyDark)
+		if label then
+			label.Text = `NEED {Format.money(cost)}`
+		end
+	elseif confirming then
+		rebirthButton.SetColor(Colors.Red)
+		if label then
+			label.Text = "TAP AGAIN TO CONFIRM!"
+		end
+	else
+		rebirthButton.SetColor(Colors.Pink)
+		if label then
+			label.Text = `REBIRTH!  +{tokens} {TOKEN}`
+		end
+	end
+end
+
+local function refreshPerks()
+	local data = State.Data
+	if not data or data.RebirthPerks == nil then
+		return
+	end
+	for id, row in perkRows do
+		local def = Progression.Perks[id]
+		local level = data.RebirthPerks[id] or 0
+		local maxLevel = #def.Costs
+		local cost = Progression.perkCost(id, level)
+		row.Level.Text = `LV {level}/{maxLevel}`
+		for index, pip in row.Pips do
+			pip.BackgroundColor3 = if index <= level then row.Color else Color3.fromRGB(30, 32, 48)
+		end
+		local label = row.Buy.Text
+		if cost then
+			row.Effect.Text = if level == 0 then `➜ {def.Effect(1)}` else `{def.Effect(level)}  ➜  {def.Effect(level + 1)}`
+			row.Buy.SetColor(if data.RebirthTokens >= cost then Colors.Blue else Colors.GreyDark)
+			if label then
+				label.Text = `{TOKEN} {cost}`
+			end
+		else
+			row.Effect.Text = def.Effect(level)
+			row.Buy.SetColor(Colors.Gold)
+			if label then
+				label.Text = "MAX"
+			end
+		end
+	end
+end
+
+local function refresh()
+	local data = State.Data
+	if not data or data.Rebirths == nil then
+		return
+	end
+	refreshRebirth()
+	refreshPerks()
+	if window.Subtitle.Text == "" or string.find(window.Subtitle.Text, TOKEN, 1, true) then
+		window.Subtitle.Text = `You have {data.RebirthTokens} {TOKEN} Rebirth Token{if data.RebirthTokens == 1 then "" else "s"}`
+	end
+end
+
+local function doRebirth()
+	local data = State.Data
+	if busy or not data or data.Cash < Progression.rebirthCost(data.Rebirths) then
+		SoundPlayer.play("Error")
+		UIKit.shake(rebirthButton.Button)
+		return
+	end
+	if not confirming then
+		-- First tap: ask to confirm (and cancel by itself after a few seconds).
+		confirming = true
+		confirmToken += 1
+		local token = confirmToken
+		SoundPlayer.play("Click", 0.8)
+		refreshRebirth()
+		task.delay(4, function()
+			if confirmToken == token then
+				resetConfirm()
+				refreshRebirth()
+			end
+		end)
+		return
+	end
+	resetConfirm()
+	busy = true
+	local ok, success, message = pcall(function()
+		return Remotes.func("Rebirth"):InvokeServer()
+	end)
+	busy = false
+	if ok and success then
+		window:Close()
+	else
+		SoundPlayer.play("Error")
+		window.Subtitle.Text = "⚠️ " .. tostring(if ok then message else success)
+		refreshRebirth()
+	end
+end
+
+local function buildRebirthPage(page: Frame)
+	rebirthsCard = statCard(page, "Rebirths", "REBIRTHS", Colors.Pink, 0)
+	bonusCard = statCard(page, "Bonus", "CASH BONUS", Colors.Green, 1 / 3)
+	tokensCard = statCard(page, "Tokens", "TOKENS", Colors.Blue, 2 / 3)
+
+	local track = UIKit.new("Frame", {
+		Name = "Progress",
+		Position = UDim2.new(0, 6, 0, 104),
+		Size = UDim2.new(1, -12, 0, 34),
+		BackgroundColor3 = Colors.Dark,
+		ZIndex = 23,
+	}, page)
+	UIKit.corner(track, UDim.new(1, 0))
+	UIKit.stroke(track, Colors.Outline, 3)
+	progressFill = UIKit.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Colors.Pink,
+		ZIndex = 24,
+	}, track)
+	UIKit.corner(progressFill, UDim.new(1, 0))
+	UIKit.gradient(progressFill, Color3.fromRGB(255, 255, 255), Color3.fromRGB(230, 170, 200))
+	progressLabel = UIKit.title(track, "£0 / £0", {
+		Name = "Amount",
+		Size = UDim2.new(1, -20, 1, -8),
+		Position = UDim2.fromOffset(10, 4),
+		ZIndex = 25,
+	}, Colors.Outline, 2.5)
+
+	listBox(page, "✔ YOU KEEP", { "Level & unlocked items", "⭐ Product stars", "🔷 Tokens & perks", "Game passes" }, Colors.Green, 0)
+	listBox(page, "✖ RESETS", { "Cash", "Upgrades", "Shop size", "Stock & shelves" }, Colors.Red, 0.5)
+
+	rebirthButton = UIKit.chunky(page, {
+		Name = "RebirthButton",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 266),
+		Size = UDim2.fromOffset(400, 66),
+		Color = Colors.Pink,
+		Text = "REBIRTH!",
+		ZIndex = 24,
+		MaxTextSize = 34,
+	}, doRebirth)
+	UIKit.shine(rebirthButton.Face, UDim.new(0, 14), 2.5)
+end
+
+local function buyPerk(id: string, row: PerkRow)
+	if busy then
+		return
+	end
+	busy = true
+	local ok, success, message = pcall(function()
+		return Remotes.func("BuyRebirthPerk"):InvokeServer(id)
+	end)
+	busy = false
+	if ok and success then
+		SoundPlayer.play("Upgrade")
+		UIKit.pop(row.Frame, 0.08)
+		window.Subtitle.Text = "✅ " .. tostring(message)
+	else
+		SoundPlayer.play("Error")
+		UIKit.shake(row.Buy.Button)
+		window.Subtitle.Text = "⚠️ " .. tostring(if ok then message else success)
+	end
+end
+
+local function perkRow(parent: Instance, id: string, order: number): PerkRow
+	local def = Progression.Perks[id]
+	local frame = UIKit.new("Frame", {
+		Name = id,
+		Size = UDim2.new(1, -12, 0, 92),
+		BackgroundColor3 = Colors.PanelLight,
+		LayoutOrder = order,
+		ZIndex = 22,
+	}, parent)
+	UIKit.corner(frame, UDim.new(0, 18))
+	UIKit.stroke(frame, Colors.Outline, 3)
+	local tile = UIKit.new("Frame", {
+		Size = UDim2.fromOffset(72, 72),
+		Position = UDim2.fromOffset(10, 8),
+		BackgroundColor3 = def.Color,
+		ZIndex = 23,
+	}, frame)
+	UIKit.corner(tile, UDim.new(0, 16))
+	UIKit.stroke(tile, UIKit.darken(def.Color, 0.45), 3)
+	UIKit.gradient(tile, Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 200, 200))
+	UIKit.label(tile, def.Icon, { Size = UDim2.fromScale(0.72, 0.72), Position = UDim2.fromScale(0.14, 0.14), ZIndex = 24 })
+	local levelPill = UIKit.new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 0, 1, 0),
+		Size = UDim2.fromOffset(66, 20),
+		BackgroundColor3 = Colors.Outline,
+		ZIndex = 25,
+	}, tile)
+	UIKit.corner(levelPill, UDim.new(1, 0))
+	local level = UIKit.title(levelPill, "LV 0", {
+		Size = UDim2.new(1, -10, 1, -6),
+		Position = UDim2.fromOffset(5, 3),
+		TextColor3 = Colors.Yellow,
+		ZIndex = 26,
+	}, Colors.Outline, 1.5)
+	UIKit.title(frame, string.upper(def.Name), {
+		Size = UDim2.new(1, -270, 0, 28),
+		Position = UDim2.fromOffset(96, 8),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 23,
+	}, Colors.Outline, 2.5)
+	local pipBar = UIKit.new("Frame", {
+		Size = UDim2.new(1, -270, 0, 10),
+		Position = UDim2.fromOffset(96, 40),
+		BackgroundTransparency = 1,
+		ZIndex = 23,
+	}, frame)
+	UIKit.new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		Padding = UDim.new(0, 4),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}, pipBar)
+	local pips = {}
+	for index = 1, #def.Costs do
+		local pip = UIKit.new("Frame", {
+			Size = UDim2.new(1 / #def.Costs, -4, 1, 0),
+			BackgroundColor3 = Color3.fromRGB(30, 32, 48),
+			LayoutOrder = index,
+			ZIndex = 24,
+		}, pipBar)
+		UIKit.corner(pip, UDim.new(1, 0))
+		pips[index] = pip
+	end
+	local effect = UIKit.label(frame, def.Description, {
+		Size = UDim2.new(1, -270, 0, 24),
+		Position = UDim2.fromOffset(96, 56),
+		TextColor3 = Color3.fromRGB(220, 225, 245),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 23,
+	})
+	local row: PerkRow
+	local buy = UIKit.chunky(frame, {
+		Name = "Buy",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -12, 0.5, 0),
+		Size = UDim2.fromOffset(150, 60),
+		Color = Colors.Blue,
+		Text = TOKEN .. " 1",
+		ZIndex = 24,
+		MaxTextSize = 28,
+	}, function()
+		buyPerk(id, row)
+	end)
+	row = { Frame = frame, Level = level, Effect = effect, Pips = pips, Buy = buy, Color = def.Color }
+	return row
+end
+
+local function buildPerksPage(page: ScrollingFrame)
+	UIKit.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }, page)
+	UIKit.padding(page, 6)
+	for order, id in Progression.PerkOrder do
+		perkRows[id] = perkRow(page, id, order)
+	end
+end
+
+-- Big "REBIRTH!" celebration for the local player.
+local function celebrate(payload: { [string]: any })
+	local rebirths = if type(payload.Rebirths) == "number" then payload.Rebirths else 1
+	local multiplier = if type(payload.Multiplier) == "number" then payload.Multiplier else 1
+	local tokens = if type(payload.Tokens) == "number" then payload.Tokens else 1
+	local flash = UIKit.new("Frame", {
+		Name = "RebirthFlash",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Colors.White,
+		BackgroundTransparency = 0,
+		ZIndex = 70,
+	}, screen)
+	UIKit.tween(flash, 0.8, { BackgroundTransparency = 1 })
+	local popup = UIKit.new("Frame", {
+		Name = "RebirthDone",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.fromOffset(520, 210),
+		BackgroundColor3 = Colors.Pink,
+		ZIndex = 71,
+	}, screen)
+	UIKit.corner(popup, UDim.new(0, 28))
+	UIKit.stroke(popup, Colors.Outline, 5)
+	UIKit.gradient(popup, Color3.fromRGB(255, 255, 255), Color3.fromRGB(220, 120, 190))
+	UIKit.shine(popup, UDim.new(0, 28), 1)
+	UIKit.title(popup, `🔁 REBIRTH {rebirths}!`, {
+		Size = UDim2.new(1, -40, 0, 60),
+		Position = UDim2.fromOffset(20, 16),
+		ZIndex = 72,
+	}, UIKit.darken(Colors.Pink, 0.6), 4)
+	UIKit.title(popup, `x{multiplier} CASH FOREVER`, {
+		Size = UDim2.new(1, -40, 0, 46),
+		Position = UDim2.fromOffset(20, 84),
+		TextColor3 = Color3.fromRGB(140, 255, 140),
+		ZIndex = 72,
+	}, Colors.Outline, 4)
+	UIKit.title(popup, `+{tokens} {TOKEN} Rebirth Token{if tokens == 1 then "" else "s"}`, {
+		Size = UDim2.new(1, -60, 0, 32),
+		Position = UDim2.fromOffset(30, 140),
+		TextColor3 = Color3.fromRGB(150, 210, 255),
+		ZIndex = 72,
+	}, Colors.Outline, 3)
+	UIKit.popIn(popup, 0.5)
+	SoundPlayer.play("Purchase", 0.9)
+	Effects.confetti(90)
+	task.delay(4, function()
+		UIKit.tween(UIKit.scaleOf(popup), 0.3, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		task.wait(0.32)
+		popup:Destroy()
+		flash:Destroy()
+	end)
+end
+
+function RebirthPanel.init(gui: ScreenGui)
+	screen = gui
+	window = Window.new(screen, { Title = "REBIRTH", Icon = "🔁", Color = Colors.Pink, Width = 720, Height = 520 })
+	local body = Window.tabs(window, TABS, function(key: string)
+		for name, page in pages do
+			page.Visible = name == key
+		end
+	end)
+	local rebirthPage = UIKit.new("Frame", {
+		Name = "Rebirth",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 22,
+	}, body)
+	pages.Rebirth = rebirthPage
+	buildRebirthPage(rebirthPage)
+	local perksPage = UIKit.new("ScrollingFrame", {
+		Name = "Perks",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 8,
+		ScrollBarImageColor3 = Colors.Grey,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		Visible = false,
+		ZIndex = 22,
+	}, body)
+	pages.Perks = perksPage
+	buildPerksPage(perksPage)
+
+	window.OnOpen = function()
+		resetConfirm()
+		window.Subtitle.Text = ""
+		refresh()
+	end
+	State.Changed:Connect(function()
+		if window:IsOpen() then
+			refresh()
+		end
+	end)
+	Effects.on("Rebirth", function(payload)
+		if payload.OwnerId == game:GetService("Players").LocalPlayer.UserId then
+			celebrate(payload)
+		end
+	end)
+	local select = window.SelectTab
+	if select then
+		select("Rebirth")
+	end
+end
+
+function RebirthPanel.open(tab: string?)
+	if not window:IsOpen() then
+		window:Open()
+	end
+	local select = window.SelectTab
+	if tab and select then
+		select(tab)
+	end
+end
+
+function RebirthPanel.toggle()
+	Window.toggle(window)
+end
+
+return RebirthPanel
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">ShopPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -10143,7 +11312,7 @@ return ShopPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">SoundPlayer</string>
               <string name="Source"><![CDATA[--!strict
@@ -10251,7 +11420,7 @@ return SoundPlayer
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">State</string>
               <string name="Source"><![CDATA[--!strict
@@ -10276,6 +11445,13 @@ export type Snapshot = {
 	BoostEnds: { [string]: number }, -- boost key -> workspace:GetServerTimeNow() it ends
 	Passes: { [string]: boolean }?,
 	IsStudio: boolean?,
+	-- Progression
+	Level: number,
+	Xp: number,
+	Sold: { [string]: number },
+	Rebirths: number,
+	RebirthTokens: number,
+	RebirthPerks: { [string]: number },
 }
 
 local State = {}
@@ -10350,7 +11526,7 @@ return State
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">StockPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -10589,7 +11765,7 @@ return StockPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">StoreQuery</string>
               <string name="Source"><![CDATA[--!strict
@@ -10682,7 +11858,7 @@ return StoreQuery
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="76">
             <Properties>
               <string name="Name">TutorialUI</string>
               <string name="Source"><![CDATA[--!strict
@@ -10822,7 +11998,7 @@ local function build()
 	pointer = UIKit.title(screen, "👈 CLICK!", {
 		Name = "TutorialPointer",
 		Size = UDim2.fromOffset(150, 44),
-		Position = UDim2.new(0, 224, 0.5, -84),
+		Position = UDim2.fromOffset(224, 192),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Colors.Yellow,
 		Visible = false,
@@ -10954,7 +12130,7 @@ function TutorialUI.init(gui: ScreenGui)
 		local wantsUpgrade = step ~= nil and step.Id == "Upgrade" and not celebrating
 		pointer.Visible = wantsUpgrade and not Window.isAnyOpen()
 		if pointer.Visible then
-			pointer.Position = UDim2.new(0, 224 + math.abs(math.sin(os.clock() * 5)) * 16, 0.5, -84)
+			pointer.Position = UDim2.fromOffset(224 + math.abs(math.sin(os.clock() * 5)) * 16, 192)
 		end
 		card.Visible = cardWanted and (celebrating or not Window.isAnyOpen())
 		Notifications.setTopOffset(if card.Visible then 132 else 0)
@@ -10965,7 +12141,7 @@ return TutorialUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="77">
             <Properties>
               <string name="Name">UIKit</string>
               <string name="Source"><![CDATA[--!strict
@@ -11456,7 +12632,329 @@ return UIKit
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="75">
+          <Item class="ModuleScript" referent="78">
+            <Properties>
+              <string name="Name">UnlocksPanel</string>
+              <string name="Source"><![CDATA[--!strict
+-- 📖 ITEMS: every product in the game. Unlocked ones spin in 3D with their
+-- stars (sell more to earn stars, each +10% price); locked ones are dark
+-- silhouettes showing the level that unlocks them. Also shows the big
+-- "LEVEL UP!" popup when you reach a new level.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Format = require(Shared:WaitForChild("Format"))
+local ProductVisuals = require(Shared:WaitForChild("ProductVisuals"))
+local Products = require(Shared:WaitForChild("Products"))
+local Progression = require(Shared:WaitForChild("Progression"))
+
+local Effects = require(script.Parent.Effects)
+local SoundPlayer = require(script.Parent.SoundPlayer)
+local State = require(script.Parent.State)
+local UIKit = require(script.Parent.UIKit)
+local Window = require(script.Parent.Window)
+
+local Colors = UIKit.Colors
+
+local UnlocksPanel = {}
+
+type Card = {
+	Frame: Frame,
+	Viewport: ViewportFrame,
+	Model: Model,
+	Spin: number,
+	Lock: Frame,
+	LockLabel: TextLabel,
+	Price: TextLabel,
+	Stars: TextLabel,
+	Track: Frame,
+	Fill: Frame,
+	Progress: TextLabel,
+}
+
+local screen: ScreenGui
+local window: Window.Window
+local cards: { [string]: Card } = {}
+
+local function preview(parent: Instance, productId: string): (ViewportFrame, Model)
+	local viewport = UIKit.new("ViewportFrame", {
+		Name = "Preview",
+		Size = UDim2.new(1, -16, 0, 84),
+		Position = UDim2.fromOffset(8, 8),
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(190, 190, 200),
+		LightColor = Color3.fromRGB(255, 255, 255),
+		LightDirection = Vector3.new(-0.6, -1, -0.8),
+		ZIndex = 24,
+	}, parent)
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = 32
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+	local model = ProductVisuals.build(productId)
+	model:PivotTo(CFrame.new())
+	model.Parent = viewport
+	local center, size = model:GetBoundingBox()
+	local radius = math.max(size.X, size.Y, size.Z) * 0.62
+	local distance = radius / math.tan(math.rad(camera.FieldOfView / 2))
+	camera.CFrame = CFrame.lookAt(center.Position + Vector3.new(0, radius * 0.45, -distance), center.Position)
+	return viewport, model
+end
+
+local function makeCard(parent: Instance, product: Products.Product, order: number): Card
+	local rarity = Products.Rarities[product.Rarity]
+	local frame = UIKit.new("Frame", {
+		Name = product.Id,
+		BackgroundColor3 = Colors.PanelLight,
+		LayoutOrder = order,
+		ZIndex = 22,
+	}, parent)
+	UIKit.corner(frame, UDim.new(0, 16))
+	UIKit.stroke(frame, rarity.Color, 3)
+	UIKit.gradient(frame, Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 190, 210))
+	local viewport, model = preview(frame, product.Id)
+	UIKit.title(frame, product.Name, {
+		Name = "ProductName",
+		Size = UDim2.new(1, -12, 0, 20),
+		Position = UDim2.fromOffset(6, 94),
+		ZIndex = 29, -- stays readable over the lock
+	}, Colors.Outline, 2)
+	local price = UIKit.title(frame, "£0", {
+		Name = "Price",
+		Size = UDim2.new(1, -12, 0, 18),
+		Position = UDim2.fromOffset(6, 115),
+		TextColor3 = Colors.Green,
+		ZIndex = 24,
+	}, Colors.Outline, 2)
+	local stars = UIKit.title(frame, "☆☆☆☆☆", {
+		Name = "Stars",
+		Size = UDim2.new(1, -20, 0, 18),
+		Position = UDim2.fromOffset(10, 135),
+		TextColor3 = Colors.Yellow,
+		ZIndex = 24,
+	}, Colors.Outline, 1.5)
+	local track = UIKit.new("Frame", {
+		Name = "Track",
+		Size = UDim2.new(1, -20, 0, 16),
+		Position = UDim2.fromOffset(10, 158),
+		BackgroundColor3 = Colors.Dark,
+		ZIndex = 24,
+	}, frame)
+	UIKit.corner(track, UDim.new(1, 0))
+	local fill = UIKit.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Colors.Yellow,
+		ZIndex = 25,
+	}, track)
+	UIKit.corner(fill, UDim.new(1, 0))
+	local progress = UIKit.title(track, "0/20", {
+		Name = "Progress",
+		Size = UDim2.new(1, -6, 1, -2),
+		Position = UDim2.fromOffset(3, 1),
+		ZIndex = 26,
+	}, Colors.Outline, 1.5)
+
+	-- Locked overlay: dark glass with a padlock over the silhouette and the
+	-- unlock level where the price and stars go.
+	local lock = UIKit.new("Frame", {
+		Name = "Lock",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Colors.Dark,
+		BackgroundTransparency = 0.25,
+		Visible = false,
+		ZIndex = 27,
+	}, frame)
+	UIKit.corner(lock, UDim.new(0, 16))
+	UIKit.label(lock, "🔒", {
+		Size = UDim2.fromOffset(44, 44),
+		Position = UDim2.new(0.5, -22, 0, 26),
+		ZIndex = 28,
+	})
+	local lockLabel = UIKit.title(lock, "LV 10", {
+		Name = "Needs",
+		Size = UDim2.new(1, -16, 0, 30),
+		Position = UDim2.fromOffset(8, 126),
+		TextColor3 = Colors.Yellow,
+		ZIndex = 28,
+	}, Colors.Outline, 2)
+
+	return {
+		Frame = frame,
+		Viewport = viewport,
+		Model = model,
+		Spin = math.random() * 6,
+		Lock = lock,
+		LockLabel = lockLabel,
+		Price = price,
+		Stars = stars,
+		Track = track,
+		Fill = fill,
+		Progress = progress,
+	}
+end
+
+local function starText(stars: number): string
+	return string.rep("★", stars) .. string.rep("☆", Progression.MaxStars - stars)
+end
+
+local function refresh()
+	local data = State.Data
+	if not data or not data.Level then
+		return
+	end
+	for id, card in cards do
+		local product = Products.ById[id]
+		local unlocked = Progression.isUnlocked(product, data.Level)
+		local sold = data.Sold[id] or 0
+		local stars = Progression.stars(sold)
+		card.Lock.Visible = not unlocked
+		card.LockLabel.Text = `LEVEL {product.UnlockLevel}`
+		card.Price.Visible = unlocked
+		card.Stars.Visible = unlocked
+		card.Track.Visible = unlocked
+		-- Locked products are black silhouettes.
+		card.Viewport.ImageColor3 = if unlocked then Colors.White else Color3.new(0, 0, 0)
+		card.Viewport.ImageTransparency = if unlocked then 0 else 0.35
+		card.Price.Text = Format.money(product.SellPrice) .. (if stars > 0 then ` +{math.floor(stars * Progression.StarBonus * 100 + 0.5)}%` else " each")
+		card.Stars.Text = starText(stars)
+		local nextAt = Progression.nextStarAt(sold)
+		if nextAt then
+			local previous = if stars > 0 then Progression.StarThresholds[stars] else 0
+			card.Fill.Size = UDim2.fromScale(math.clamp((sold - previous) / (nextAt - previous), 0, 1), 1)
+			card.Progress.Text = `{Format.commas(sold)}/{Format.commas(nextAt)} sold`
+		else
+			card.Fill.Size = UDim2.fromScale(1, 1)
+			card.Progress.Text = "MAX ★"
+		end
+	end
+	local nextProduct = Progression.nextUnlock(data.Level)
+	window.Subtitle.Text = if nextProduct
+		then `Level {data.Level} · next: {nextProduct.Icon} {nextProduct.Name} at level {nextProduct.UnlockLevel}`
+		else `Level {data.Level} · everything unlocked!`
+end
+
+-- "LEVEL UP!" popup with anything that just unlocked.
+local function levelUp(payload: { [string]: any })
+	local level = if type(payload.Level) == "number" then payload.Level else 0
+	local unlocked = if type(payload.Unlocked) == "table" then payload.Unlocked else {}
+	local reward = if type(payload.Reward) == "number" then payload.Reward else 0
+	local popup = UIKit.new("Frame", {
+		Name = "LevelUp",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.3),
+		Size = UDim2.fromOffset(380, if #unlocked > 0 then 170 else 120),
+		BackgroundColor3 = Colors.Purple,
+		ZIndex = 55,
+	}, screen)
+	UIKit.corner(popup, UDim.new(0, 24))
+	UIKit.stroke(popup, Colors.Outline, 4)
+	UIKit.gradient(popup, Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 130, 230))
+	UIKit.shine(popup, UDim.new(0, 24), 1)
+	UIKit.title(popup, `LEVEL {level}!`, {
+		Size = UDim2.new(1, -30, 0, 50),
+		Position = UDim2.fromOffset(15, 12),
+		ZIndex = 56,
+	}, Colors.PurpleDark, 4)
+	UIKit.title(popup, "+" .. Format.money(reward), {
+		Size = UDim2.new(1, -30, 0, 30),
+		Position = UDim2.fromOffset(15, 66),
+		TextColor3 = Color3.fromRGB(140, 255, 140),
+		ZIndex = 56,
+	}, Colors.Outline, 3)
+	if #unlocked > 0 then
+		local names = {}
+		for _, id in unlocked do
+			local product = Products.ById[id]
+			if product then
+				table.insert(names, `{product.Icon} {product.Name}`)
+			end
+		end
+		UIKit.title(popup, "NEW: " .. table.concat(names, ", "), {
+			Size = UDim2.new(1, -30, 0, 34),
+			Position = UDim2.fromOffset(15, 108),
+			TextColor3 = Colors.Yellow,
+			ZIndex = 56,
+		}, Colors.Outline, 3)
+	end
+	UIKit.popIn(popup, 0.45)
+	SoundPlayer.play("StepDone", 1.1)
+	Effects.confetti(if #unlocked > 0 then 45 else 25)
+	task.delay(if #unlocked > 0 then 3.2 else 2.2, function()
+		UIKit.tween(UIKit.scaleOf(popup), 0.25, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		task.wait(0.27)
+		popup:Destroy()
+	end)
+	if window:IsOpen() then
+		refresh()
+	end
+end
+
+function UnlocksPanel.init(gui: ScreenGui)
+	screen = gui
+	window = Window.new(screen, { Title = "ITEMS", Icon = "📖", Color = Colors.Blue:Lerp(Colors.Purple, 0.5), Width = 800, Height = 520 })
+	local grid = UIKit.new("ScrollingFrame", {
+		Name = "Grid",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 8,
+		ScrollBarImageColor3 = Colors.Grey,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ZIndex = 22,
+	}, window.Content)
+	UIKit.new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(134, 184),
+		CellPadding = UDim2.fromOffset(12, 12),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	}, grid)
+	UIKit.padding(grid, 8)
+	for order, product in Products.List do
+		cards[product.Id] = makeCard(grid, product, order)
+	end
+	window.OnOpen = refresh
+	State.Changed:Connect(function()
+		if window:IsOpen() then
+			refresh()
+		end
+	end)
+	Effects.on("LevelUp", levelUp)
+	Effects.on("Star", function()
+		if window:IsOpen() then
+			refresh()
+		end
+	end)
+	-- Unlocked products spin slowly while the menu is open.
+	RunService.RenderStepped:Connect(function(dt: number)
+		if not window:IsOpen() then
+			return
+		end
+		for _, card in cards do
+			if not card.Lock.Visible then
+				card.Spin += dt * 1.2
+				card.Model:PivotTo(CFrame.Angles(0, card.Spin, 0))
+			end
+		end
+	end)
+end
+
+function UnlocksPanel.toggle()
+	Window.toggle(window)
+end
+
+function UnlocksPanel.isOpen(): boolean
+	return window:IsOpen()
+end
+
+return UnlocksPanel
+]]></string>
+            </Properties>
+          </Item>
+          <Item class="ModuleScript" referent="79">
             <Properties>
               <string name="Name">UpgradesPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -11739,7 +13237,7 @@ return UpgradesPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="76">
+          <Item class="ModuleScript" referent="80">
             <Properties>
               <string name="Name">Window</string>
               <string name="Source"><![CDATA[--!strict
@@ -11976,7 +13474,7 @@ return Window
             </Properties>
           </Item>
         </Item>
-        <Item class="LocalScript" referent="77">
+        <Item class="LocalScript" referent="81">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[--!strict
@@ -11990,6 +13488,8 @@ local Effects = require(Controllers.Effects)
 local Guide = require(Controllers.Guide)
 local HUD = require(Controllers.HUD)
 local LeaderboardPanel = require(Controllers.LeaderboardPanel)
+local RebirthPanel = require(Controllers.RebirthPanel)
+local UnlocksPanel = require(Controllers.UnlocksPanel)
 local Notifications = require(Controllers.Notifications)
 local Prompts = require(Controllers.Prompts)
 local ShopPanel = require(Controllers.ShopPanel)
@@ -12038,6 +13538,8 @@ UpgradesPanel.init(screen)
 StockPanel.init(screen)
 ShopPanel.init(screen)
 LeaderboardPanel.init(screen)
+UnlocksPanel.init(screen)
+RebirthPanel.init(screen)
 Effects.init(screen)
 Prompts.init()
 Guide.init()
@@ -12046,6 +13548,8 @@ TutorialUI.init(screen)
 HUD.UpgradesPressed:Connect(UpgradesPanel.toggle)
 HUD.StockPressed:Connect(StockPanel.toggle)
 HUD.LeadersPressed:Connect(LeaderboardPanel.toggle)
+HUD.UnlocksPressed:Connect(UnlocksPanel.toggle)
+HUD.RebirthPressed:Connect(RebirthPanel.toggle)
 HUD.ShopPressed:Connect(function(tab: string?)
 	if tab then
 		ShopPanel.open(tab)
@@ -12059,7 +13563,7 @@ end)
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="78">
+  <Item class="Workspace" referent="82">
     <Properties>
       <string name="Name">Workspace</string>
       <float name="Gravity">196.2</float>

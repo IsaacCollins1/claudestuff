@@ -442,6 +442,48 @@ local perSecond = totalEmitted / math.max(1, Scheduler.now)
 check(perSecond < 40, string.format("not too many: %.1f particles per second on average", perSecond))
 reportErrors("five minutes")
 
+section("Progression: levels, unlocks and stars")
+local Progression = runtime:require("server", runtime.game.ReplicatedStorage.Shared.Progression)
+local ProductsModule = runtime:require("server", runtime.game.ReplicatedStorage.Shared.Products)
+local progress = bot.data()
+check(progress.Level >= 3, string.format("selling and unpacking levels you up (level %d, %d XP)", progress.Level, progress.Xp))
+check(
+	gui.LevelBadge.Number.Text == tostring(progress.Level) and string.find(gui.Level.Xp.Text, "XP", 1, true) ~= nil,
+	"HUD shows the level and XP bar (" .. gui.Level.Xp.Text .. ")"
+)
+local onlyUnlocked, bestStars, soldKinds = true, 0, 0
+for id, count in progress.Sold do
+	soldKinds += 1
+	if ProductsModule.ById[id].UnlockLevel > progress.Level then
+		onlyUnlocked = false
+	end
+	bestStars = math.max(bestStars, Progression.stars(count))
+end
+check(onlyUnlocked and soldKinds >= 2, string.format("deliveries only bring unlocked products (%d kinds sold)", soldKinds))
+check(bestStars >= 1, "selling a product earns it stars")
+runtime:click(gui.Unlocks)
+runtime:run(0.5)
+local itemsWindow = bot.window("ITEMS")
+local grid = itemsWindow.Content:FindFirstChild("Grid")
+local lockedRight = true
+for _, product in ProductsModule.List do
+	local card = grid and grid:FindFirstChild(product.Id)
+	if not card or card.Lock.Visible ~= (product.UnlockLevel > progress.Level) then
+		lockedRight = false
+	end
+end
+check(itemsWindow.Visible and lockedRight, "📖 ITEMS shows every product, locked ones behind their level")
+local topSeller, topCount = "Water", -1
+for id, count in progress.Sold do
+	if count > topCount then
+		topSeller, topCount = id, count
+	end
+end
+local topCard = grid[topSeller]
+check(string.find(topCard.Stars.Text, "★", 1, true) ~= nil, `product cards show stars ({topSeller}: {topCard.Stars.Text} {topCard.Track.Progress.Text})`)
+bot.closeWindows()
+reportErrors("progression")
+
 section("Leaderboards")
 runtime:run(65)
 local leaderboardsModule = runtime:serverModule(runtime.game.ServerScriptService.Server.Services.Leaderboards)
@@ -604,6 +646,70 @@ runtime:run(1)
 check(Shelves.count(player2Shelf) == 0, "server rejects Player1 stocking Player2's shelf")
 reportErrors("multiplayer")
 
+section("Rebirth")
+local ProgressionService = runtime:serverModule(services.ProgressionService)
+local Upgrades = runtime:require("server", runtime.game.ReplicatedStorage.Shared.Upgrades)
+local before = bot.data()
+local levelBefore, soldBefore = before.Level, before.Sold.Water or 0
+before.Cash = 1000
+runtime:run(0.3)
+local allowed, why = ProgressionService.rebirth(player1)
+check(allowed == false and bot.data().Rebirths == 0, "can't rebirth without enough cash (server checks: " .. tostring(why) .. ")")
+PlayerData.addCash(player1, 60000)
+runtime:run(0.5)
+check(gui.Rebirth:FindFirstChild("Badge", true) ~= nil and gui.Rebirth:FindFirstChild("Badge", true).Visible, "REBIRTH button lights up when you can afford it")
+runtime:click(gui.Rebirth)
+runtime:run(0.5)
+local rebirthWindow = bot.window("REBIRTH")
+local rebirthPage = rebirthWindow.Content.Body.Rebirth
+check(rebirthWindow.Visible and rebirthPage.Bonus.Value.Text == "x1 ➜ x1.5", "REBIRTH menu shows the next cash bonus (" .. rebirthPage.Bonus.Value.Text .. ")")
+runtime:click(rebirthPage.RebirthButton)
+runtime:run(0.3)
+local confirmText = rebirthPage.RebirthButton:FindFirstChild("Label", true).Text
+check(bot.data().Rebirths == 0 and string.find(confirmText, "CONFIRM", 1, true) ~= nil, "first tap asks to confirm (" .. confirmText .. ")")
+runtime:click(rebirthPage.RebirthButton)
+runtime:run(1)
+local after = bot.data()
+local defaults = true
+for id, value in after.Upgrades do
+	if value ~= Upgrades.Defs[id].StartLevel then
+		defaults = false
+	end
+end
+check(after.Rebirths == 1 and after.RebirthTokens == 1, "rebirthed: 1 rebirth, 1 🔷 token")
+check(after.Cash == 25 and defaults and next(after.Inventory) == nil, string.format("cash, upgrades and stock reset (cash £%d, upgrades default: %s, stock: %s)", after.Cash, tostring(defaults), tostring(next(after.Inventory))))
+check(bot.store().Level == 1 and #bot.store().Shelves == 2, "shop is back to a Corner Shop")
+check(after.Level == levelBefore and (after.Sold.Water or 0) == soldBefore, "level, unlocks and stars are kept")
+check(Perks.has(player1, "VIP") and Perks.cashMultiplier(player1) == 3, "passes kept; cash multiplier is x1.5 (x3 with 2x Cash)")
+check(player1.leaderstats.Rebirths.Value == 1, "rebirths show in the player list")
+check(gui:FindFirstChild("RebirthDone") ~= nil, "rebirth celebration plays")
+runtime:run(4.5)
+-- Spend the token on a perk.
+runtime:click(gui.Rebirth)
+runtime:run(0.5)
+runtime:click(rebirthWindow.Content.Tabs.Perks)
+runtime:run(0.3)
+runtime:click(rebirthWindow.Content.Body.Perks.HeadStart.Buy)
+runtime:run(0.5)
+check(bot.data().RebirthPerks.HeadStart == 1 and bot.data().RebirthTokens == 0, "🔷 token buys the Head Start perk")
+runtime:click(rebirthWindow.Content.Body.Perks.ExpressVans.Buy)
+runtime:run(0.5)
+check(
+	bot.data().RebirthPerks.ExpressVans == 0 and string.find(rebirthWindow.Subtitle.Text, "Token", 1, true) ~= nil,
+	string.format("can't buy a perk without tokens (level %s, \"%s\")", tostring(bot.data().RebirthPerks.ExpressVans), rebirthWindow.Subtitle.Text)
+)
+bot.closeWindows()
+-- The new run works: deliveries, sales at the new multiplier.
+local earnedBefore = bot.data().TotalEarned
+for _ = 1, 60 do
+	bot.tick(false)
+	if bot.data().TotalEarned > earnedBefore then
+		break
+	end
+end
+check(bot.data().TotalEarned > earnedBefore, "the new run plays normally (deliveries and sales)")
+reportErrors("rebirth")
+
 section("Saving and loading")
 local savedCash = bot.data().Cash
 local savedUpgrades = table.clone(bot.data().Upgrades)
@@ -612,6 +718,7 @@ for _, keys in Shelves.serialize(bot.store()) do
 	savedShelfItems += #keys
 end
 local savedStock = bot.stock()
+local savedStoreLevel, savedShelfCount = bot.store().Level, #bot.store().Shelves
 runtime:removePlayer(player1)
 runtime:run(2)
 check(dataStores["FillTheStore_PlayerData_v1"]["Player_1001"] ~= nil, "data saved to the DataStore on leave")
@@ -648,10 +755,12 @@ for id, level in savedUpgrades do
 end
 check(upgradesMatch, "upgrades restored")
 check(bot2.data().Tutorial.Done, "tutorial stays finished")
-check(bot2.store().Level == 3 and #bot2.store().Shelves == 10, "store level restored")
+check(bot2.store().Level == savedStoreLevel and #bot2.store().Shelves == savedShelfCount, "store level restored")
 check(loadedItems + bot2.stock() >= savedShelfItems + savedStock - 5, "shelf stock + inventory restored")
 check(Perks2.has(player1Again, "VIP"), "owned game pass detected on rejoin (UserOwnsGamePassAsync)")
 check(Perks2.boostActive(player1Again, "CustomerRush"), "Customer Rush boost keeps running across sessions")
+local reloaded = bot2.data()
+check(reloaded.Rebirths == 1 and reloaded.RebirthPerks.HeadStart == 1 and reloaded.Level >= 3, "rebirths, perks and level are saved")
 check(not bot2.gui().Tutorial.Visible, "no tutorial for returning players")
 runtime2:run(20)
 reportErrors("load")

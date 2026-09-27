@@ -458,6 +458,59 @@ handlers.TutorialStep = function()
 	end
 end
 
+-- Level up: a bigger column of stars (the ITEMS menu shows the popup).
+handlers.LevelUp = function(payload)
+	local _, feet = playerSpot()
+	if feet then
+		Particles.ring(feet, Color3.fromRGB(190, 140, 255))
+		Particles.emit("Rise", feet, 26, { Color3.fromRGB(190, 140, 255), Particles.Colors.Gold, Particles.Colors.White })
+		Particles.cameraPunch(2)
+	end
+	SoundPlayer.play("Upgrade", 1.2)
+end
+
+-- A product earned a star.
+handlers.Star = function()
+	local root = playerSpot()
+	if root then
+		Particles.emit("Sparkle", root.Position + Vector3.new(0, 2.5, 0), 14, { Particles.Colors.Gold, Particles.Colors.White })
+	end
+	SoundPlayer.play("Rare", 1.2)
+end
+
+-- Rebirth: fireworks over the rebuilt shop (everyone nearby sees them).
+handlers.Rebirth = function(payload)
+	local position = payload.Position
+	if typeof(position) ~= "Vector3" then
+		return
+	end
+	local mine = payload.OwnerId == player.UserId
+	for index = 1, if mine then 5 else 3 do
+		task.delay((index - 1) * 0.3, function()
+			SoundPlayer.play("Whoosh", 0.8 + index * 0.08, position)
+			local color = Particles.Rainbow[(index - 1) % #Particles.Rainbow + 1]
+			Particles.firework(position + Vector3.new((index - 3) * 5, 2, 0), color, function()
+				SoundPlayer.play("Pop", 0.85 + index * 0.08, position)
+			end)
+		end)
+	end
+	if mine then
+		Particles.cameraPunch(5)
+		local _, feet = playerSpot()
+		if feet then
+			Particles.ring(feet, Color3.fromRGB(255, 120, 200))
+			Particles.emit("Rise", feet, 30, Particles.Rainbow)
+		end
+	end
+end
+
+handlers.PerkBought = function()
+	local _, feet = playerSpot()
+	if feet then
+		Particles.emit("Rise", feet, 16, { Color3.fromRGB(110, 180, 255), Particles.Colors.White })
+	end
+end
+
 -- Products popping onto shelves --------------------------------------------------------
 
 local function animateStock(item: Instance)

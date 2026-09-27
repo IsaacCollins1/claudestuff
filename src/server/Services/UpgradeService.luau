@@ -34,15 +34,6 @@ local function apply(player: Player, id: string, level: number)
 			local signPosition = (session.PlotCFrame * newStore.Layout.SignCFrame).Position
 			Net.effectAll("StoreExpanded", { Position = signPosition, OwnerId = player.UserId })
 			Net.notify(player, "Expand", "🏪 STORE EXPANDED! " .. string.upper(StoreLevels.getSpec(level).Name))
-			local unlocked = {}
-			for _, product in Products.List do
-				if product.UnlockLevel == level then
-					table.insert(unlocked, product.Icon)
-				end
-			end
-			if #unlocked > 0 then
-				Net.notify(player, "Info", "New products in deliveries: " .. table.concat(unlocked, " "))
-			end
 		end
 	elseif id == "Workers" then
 		if store then

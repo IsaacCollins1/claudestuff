@@ -135,7 +135,7 @@ local function build()
 	pointer = UIKit.title(screen, "👈 CLICK!", {
 		Name = "TutorialPointer",
 		Size = UDim2.fromOffset(150, 44),
-		Position = UDim2.new(0, 224, 0.5, -84),
+		Position = UDim2.fromOffset(224, 192),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Colors.Yellow,
 		Visible = false,
@@ -267,7 +267,7 @@ function TutorialUI.init(gui: ScreenGui)
 		local wantsUpgrade = step ~= nil and step.Id == "Upgrade" and not celebrating
 		pointer.Visible = wantsUpgrade and not Window.isAnyOpen()
 		if pointer.Visible then
-			pointer.Position = UDim2.new(0, 224 + math.abs(math.sin(os.clock() * 5)) * 16, 0.5, -84)
+			pointer.Position = UDim2.fromOffset(224 + math.abs(math.sin(os.clock() * 5)) * 16, 192)
 		end
 		card.Visible = cardWanted and (celebrating or not Window.isAnyOpen())
 		Notifications.setTopOffset(if card.Visible then 132 else 0)

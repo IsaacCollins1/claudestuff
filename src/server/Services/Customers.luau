@@ -7,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
+local Progression = require(Shared.Progression)
 local StoreLevels = require(Shared.StoreLevels)
 local Upgrades = require(Shared.Upgrades)
 
@@ -32,6 +33,7 @@ type Customer = {
 	ReservedShelf: Shelf?,
 	Node: string,
 	Alive: boolean,
+	Run: number, -- the owner's rebirth count when this customer arrived
 }
 
 local Customers = {}
@@ -111,21 +113,22 @@ local function checkout(customer: Customer)
 	task.wait(Config.CheckoutTime)
 	NpcMotion.check(customer.Walker)
 
-	-- Pay!
+	-- Pay! Products with stars sell for more; rebirths and 2x Cash multiply it all.
+	local owner = store.Owner
+	local data = PlayerData.get(owner)
 	local total = 0
 	local rare = false
 	for _, key in customer.Items do
-		total += Items.sellPrice(key)
+		local sold = if data then data.Sold[Items.product(key).Id] or 0 else 0
+		total += Items.sellPrice(key) * Progression.starMultiplier(sold)
 		rare = rare or Items.isRare(key)
 	end
-	local owner = store.Owner
 	local multiplier = Perks.cashMultiplier(owner)
-	total *= multiplier
-	local data = PlayerData.get(owner)
+	total = math.floor(total * multiplier)
 	if data then
 		data.Stats.ItemsSold += #customer.Items
 		PlayerData.addCash(owner, total)
-		Events.Sale:Fire(owner, total, #customer.Items)
+		Events.Sale:Fire(owner, total, table.clone(customer.Items))
 	end
 	Net.effectAll("Sale", {
 		Position = store.Register.Position + Vector3.new(0, 2.2, 0),
@@ -200,9 +203,13 @@ local function cleanup(customer: Customer)
 	if queueIndex then
 		table.remove(store.Queue, queueIndex)
 	end
-	-- Anything still in the basket goes back into the owner's stock.
-	for _, key in customer.Items do
-		PlayerData.addItem(store.Owner, key, 1)
+	-- Anything still in the basket goes back into the owner's stock
+	-- (unless the owner has rebirthed since: that stock belonged to the old run).
+	local data = PlayerData.get(store.Owner)
+	if data and data.Rebirths == customer.Run then
+		for _, key in customer.Items do
+			PlayerData.addItem(store.Owner, key, 1)
+		end
 	end
 	table.clear(customer.Items)
 	if store.Customers[customer] then
@@ -243,6 +250,7 @@ function Customers.spawn(store: Store)
 		ReservedShelf = nil,
 		Node = "Spawn",
 		Alive = true,
+		Run = (PlayerData.get(store.Owner) or { Rebirths = 0 }).Rebirths,
 	}
 	store.Customers[customer] = true
 	store.CustomerCount += 1

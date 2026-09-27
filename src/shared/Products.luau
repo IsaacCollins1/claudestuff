@@ -18,7 +18,7 @@ export type Product = {
 	Rarity: string,
 	BuyPrice: number, -- wholesale value (used for store value)
 	SellPrice: number, -- what a customer pays
-	UnlockLevel: number, -- store level needed before deliveries contain it
+	UnlockLevel: number, -- player level (Progression) needed before deliveries contain it
 	BoxMin: number, -- units per delivery box
 	BoxMax: number,
 	Shape: string, -- visual builder in ProductVisuals
@@ -51,62 +51,62 @@ Products.List = {
 	},
 	{
 		Id = "Chocolate", Name = "Chocolate", Icon = "🍫", Category = "Snacks", Rarity = "Common",
-		BuyPrice = 2, SellPrice = 6, UnlockLevel = 1, BoxMin = 8, BoxMax = 12,
+		BuyPrice = 2, SellPrice = 6, UnlockLevel = 2, BoxMin = 8, BoxMax = 12,
 		Shape = "Bar", Color = rgb(110, 62, 36), Accent = rgb(120, 60, 200),
 	},
 	{
 		Id = "Cola", Name = "Cola", Icon = "🥤", Category = "Drinks", Rarity = "Common",
-		BuyPrice = 3, SellPrice = 8, UnlockLevel = 1, BoxMin = 8, BoxMax = 12,
+		BuyPrice = 3, SellPrice = 8, UnlockLevel = 3, BoxMin = 8, BoxMax = 12,
 		Shape = "Can", Color = rgb(225, 30, 40), Accent = rgb(245, 245, 245),
 	},
 	{
 		Id = "EnergyDrink", Name = "Energy Drink", Icon = "⚡", Category = "Drinks", Rarity = "Uncommon",
-		BuyPrice = 5, SellPrice = 12, UnlockLevel = 1, BoxMin = 6, BoxMax = 10,
+		BuyPrice = 5, SellPrice = 12, UnlockLevel = 4, BoxMin = 6, BoxMax = 10,
 		Shape = "Can", Color = rgb(40, 40, 50), Accent = rgb(120, 255, 60),
 	},
 	{
 		Id = "Cereal", Name = "Cereal", Icon = "🥣", Category = "Groceries", Rarity = "Uncommon",
-		BuyPrice = 6, SellPrice = 15, UnlockLevel = 1, BoxMin = 5, BoxMax = 8,
+		BuyPrice = 6, SellPrice = 15, UnlockLevel = 6, BoxMin = 5, BoxMax = 8,
 		Shape = "Cereal", Color = rgb(255, 140, 30), Accent = rgb(255, 255, 255),
 	},
 	{
 		Id = "ToiletRoll", Name = "Toilet Roll", Icon = "🧻", Category = "Household", Rarity = "Uncommon",
-		BuyPrice = 7, SellPrice = 18, UnlockLevel = 2, BoxMin = 5, BoxMax = 8,
+		BuyPrice = 7, SellPrice = 18, UnlockLevel = 8, BoxMin = 5, BoxMax = 8,
 		Shape = "Roll", Color = rgb(250, 250, 250), Accent = rgb(140, 200, 255),
 	},
 	{
 		Id = "Pizza", Name = "Pizza", Icon = "🍕", Category = "Frozen", Rarity = "Rare",
-		BuyPrice = 9, SellPrice = 22, UnlockLevel = 2, BoxMin = 4, BoxMax = 7,
+		BuyPrice = 9, SellPrice = 22, UnlockLevel = 10, BoxMin = 4, BoxMax = 7,
 		Shape = "Pizza", Color = rgb(245, 235, 215), Accent = rgb(220, 50, 40),
 	},
 	{
 		Id = "Cleaning", Name = "Cleaning Spray", Icon = "🧴", Category = "Household", Rarity = "Rare",
-		BuyPrice = 12, SellPrice = 30, UnlockLevel = 2, BoxMin = 4, BoxMax = 6,
+		BuyPrice = 12, SellPrice = 30, UnlockLevel = 12, BoxMin = 4, BoxMax = 6,
 		Shape = "Spray", Color = rgb(90, 220, 200), Accent = rgb(255, 255, 255),
 	},
 	{
 		Id = "Headphones", Name = "Headphones", Icon = "🎧", Category = "Electronics", Rarity = "Rare",
-		BuyPrice = 25, SellPrice = 60, UnlockLevel = 2, BoxMin = 2, BoxMax = 4,
+		BuyPrice = 25, SellPrice = 60, UnlockLevel = 15, BoxMin = 2, BoxMax = 4,
 		Shape = "Headphones", Color = rgb(35, 35, 45), Accent = rgb(255, 80, 160),
 	},
 	{
 		Id = "Smartphone", Name = "Smartphone", Icon = "📱", Category = "Electronics", Rarity = "Epic",
-		BuyPrice = 60, SellPrice = 150, UnlockLevel = 3, BoxMin = 2, BoxMax = 3,
+		BuyPrice = 60, SellPrice = 150, UnlockLevel = 18, BoxMin = 2, BoxMax = 3,
 		Shape = "Phone", Color = rgb(30, 30, 38), Accent = rgb(80, 180, 255),
 	},
 	{
 		Id = "Console", Name = "Games Console", Icon = "🎮", Category = "Electronics", Rarity = "Epic",
-		BuyPrice = 100, SellPrice = 250, UnlockLevel = 3, BoxMin = 1, BoxMax = 3,
+		BuyPrice = 100, SellPrice = 250, UnlockLevel = 22, BoxMin = 1, BoxMax = 3,
 		Shape = "Console", Color = rgb(245, 245, 250), Accent = rgb(60, 110, 255),
 	},
 	{
 		Id = "Laptop", Name = "Laptop", Icon = "💻", Category = "Electronics", Rarity = "Epic",
-		BuyPrice = 180, SellPrice = 450, UnlockLevel = 3, BoxMin = 1, BoxMax = 2,
+		BuyPrice = 180, SellPrice = 450, UnlockLevel = 26, BoxMin = 1, BoxMax = 2,
 		Shape = "Laptop", Color = rgb(190, 195, 205), Accent = rgb(90, 200, 255),
 	},
 	{
 		Id = "Television", Name = "Television", Icon = "📺", Category = "Electronics", Rarity = "Legendary",
-		BuyPrice = 280, SellPrice = 700, UnlockLevel = 3, BoxMin = 1, BoxMax = 2,
+		BuyPrice = 280, SellPrice = 700, UnlockLevel = 30, BoxMin = 1, BoxMax = 2,
 		Shape = "TV", Color = rgb(25, 25, 30), Accent = rgb(90, 160, 255),
 	},
 } :: { Product }
@@ -118,11 +118,11 @@ for index, product in Products.List do
 	Products.Index[product.Id] = index
 end
 
--- Products that deliveries can contain at a given store level.
-function Products.poolForLevel(storeLevel: number): { Product }
+-- Products that deliveries can contain at a given player level.
+function Products.poolForLevel(level: number): { Product }
 	local pool = {}
 	for _, product in Products.List do
-		if product.UnlockLevel <= storeLevel then
+		if product.UnlockLevel <= level then
 			table.insert(pool, product)
 		end
 	end
@@ -130,8 +130,8 @@ function Products.poolForLevel(storeLevel: number): { Product }
 end
 
 -- Weighted random product for a delivery box.
-function Products.rollForBox(rng: Random, storeLevel: number): Product
-	local pool = Products.poolForLevel(storeLevel)
+function Products.rollForBox(rng: Random, level: number): Product
+	local pool = Products.poolForLevel(level)
 	local total = 0
 	for _, product in pool do
 		total += Products.Rarities[product.Rarity].Weight

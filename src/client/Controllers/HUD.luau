@@ -1,7 +1,7 @@
 --!strict
 -- The always-on simulator HUD:
---   * top-left: cash (with a "+" to buy more) and store value
---   * left: big chunky SHOP / UPGRADE / STOCK / TOP buttons
+--   * top-left: cash (with a "+" to buy more), store value and level / XP
+--   * left: big chunky SHOP / UPGRADE / STOCK / TOP / ITEMS / REBIRTH buttons
 --   * top-centre: delivery timer with a progress bar
 --   * top-right: active boosts and owned passes
 --   * bottom: a short hint when there's something to do
@@ -17,6 +17,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Format = require(Shared:WaitForChild("Format"))
 local Monetization = require(Shared:WaitForChild("Monetization"))
+local Progression = require(Shared:WaitForChild("Progression"))
 local Signal = require(Shared:WaitForChild("Signal"))
 local Upgrades = require(Shared:WaitForChild("Upgrades"))
 
@@ -34,6 +35,8 @@ HUD.UpgradesPressed = Signal.new() :: Signal.Signal<>
 HUD.StockPressed = Signal.new() :: Signal.Signal<>
 HUD.ShopPressed = Signal.new() :: Signal.Signal<string?>
 HUD.LeadersPressed = Signal.new() :: Signal.Signal<>
+HUD.UnlocksPressed = Signal.new() :: Signal.Signal<>
+HUD.RebirthPressed = Signal.new() :: Signal.Signal<>
 
 local screen: ScreenGui
 local cashPill: Frame
@@ -48,6 +51,12 @@ local hintLabel: TextLabel
 local stockBadge: Frame
 local stockBadgeLabel: TextLabel
 local upgradesAlert: Frame
+local rebirthAlert: Frame
+local levelPill: Frame
+local levelBadgeLabel: TextLabel
+local levelFill: Frame
+local levelText: TextLabel
+local shownLevel = 0
 local boostsColumn: Frame
 local buttons: { [string]: UIKit.Chunky } = {}
 
@@ -102,6 +111,90 @@ local function buildCurrency()
 	}, Colors.Outline, 2)
 end
 
+-- Level / XP bar ------------------------------------------------------------------
+
+local function buildLevel()
+	levelPill = UIKit.pill(screen, {
+		Name = "Level",
+		Position = UDim2.fromOffset(40, 118),
+		Size = UDim2.fromOffset(200, 30),
+		BackgroundTransparency = 0.2,
+	})
+	local track = UIKit.new("Frame", {
+		Name = "Track",
+		Position = UDim2.fromOffset(26, 7),
+		Size = UDim2.new(1, -36, 1, -14),
+		BackgroundColor3 = Colors.Dark,
+		ZIndex = 2,
+	}, levelPill)
+	UIKit.corner(track, UDim.new(1, 0))
+	levelFill = UIKit.new("Frame", {
+		Name = "Fill",
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = Colors.Purple,
+		ZIndex = 3,
+	}, track)
+	UIKit.corner(levelFill, UDim.new(1, 0))
+	UIKit.gradient(levelFill, Color3.fromRGB(255, 255, 255), Color3.fromRGB(200, 170, 255))
+	levelText = UIKit.title(levelPill, "0 / 30 XP", {
+		Name = "Xp",
+		Position = UDim2.fromOffset(26, 3),
+		Size = UDim2.new(1, -36, 1, -6),
+		ZIndex = 4,
+	}, Colors.Outline, 2)
+	-- Round level badge on the left, like the cash coin.
+	local badge = UIKit.new("Frame", {
+		Name = "LevelBadge",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(40, 133),
+		Size = UDim2.fromOffset(44, 44),
+		BackgroundColor3 = Colors.Purple,
+		ZIndex = 5,
+	}, screen)
+	UIKit.corner(badge, UDim.new(1, 0))
+	UIKit.stroke(badge, Colors.Outline, 3)
+	UIKit.gradient(badge, Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 160, 240))
+	UIKit.title(badge, "LV", {
+		Position = UDim2.fromOffset(6, 3),
+		Size = UDim2.new(1, -12, 0, 12),
+		ZIndex = 6,
+	}, Colors.PurpleDark, 1.5)
+	levelBadgeLabel = UIKit.title(badge, "1", {
+		Name = "Number",
+		Position = UDim2.fromOffset(4, 14),
+		Size = UDim2.new(1, -8, 0, 24),
+		ZIndex = 6,
+	}, Colors.PurpleDark, 2)
+	-- Tap the bar to see what unlocks next.
+	local hit = UIKit.new("TextButton", {
+		Name = "Open",
+		Text = "",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 7,
+	}, levelPill)
+	hit.Activated:Connect(function()
+		SoundPlayer.play("Click")
+		HUD.UnlocksPressed:Fire()
+	end)
+end
+
+local function refreshLevel()
+	local data = State.Data
+	if not data or not data.Level then
+		return
+	end
+	local needed = Progression.xpToNext(data.Level)
+	local fraction = if data.Level >= Progression.MaxLevel then 1 else math.clamp(data.Xp / needed, 0, 1)
+	UIKit.tween(levelFill, 0.3, { Size = UDim2.fromScale(fraction, 1) })
+	levelText.Text = if data.Level >= Progression.MaxLevel then "MAX LEVEL" else `{Format.commas(data.Xp)} / {Format.commas(needed)} XP`
+	levelBadgeLabel.Text = tostring(data.Level)
+	if shownLevel ~= 0 and data.Level > shownLevel then
+		UIKit.pop(levelPill, 0.2)
+	end
+	shownLevel = data.Level
+end
+
 -- Button grid -------------------------------------------------------------------
 
 local function bigButton(name: string, icon: string, text: string, color: Color3, order: number, onClick: () -> ()): UIKit.Chunky
@@ -110,7 +203,8 @@ local function bigButton(name: string, icon: string, text: string, color: Color3
 	local chunky = UIKit.chunky(screen, {
 		Name = name,
 		Size = UDim2.fromOffset(92, 92),
-		Position = UDim2.new(0, 14 + column * 104, 0.5, -110 + row * 108),
+		-- From the top (not the middle) so it never slides under the level bar on phones.
+		Position = UDim2.fromOffset(14 + column * 104, 168 + row * 108),
 		Color = color,
 		Icon = icon,
 		Text = text,
@@ -151,8 +245,15 @@ local function buildButtons()
 	bigButton("Leaders", "🏆", "TOP", Colors.Purple, 4, function()
 		HUD.LeadersPressed:Fire()
 	end)
+	bigButton("Unlocks", "📖", "ITEMS", Colors.Blue:Lerp(Colors.Purple, 0.5), 5, function()
+		HUD.UnlocksPressed:Fire()
+	end)
+	local rebirth = bigButton("Rebirth", "🔁", "REBIRTH", Colors.Pink, 6, function()
+		HUD.RebirthPressed:Fire()
+	end)
 	stockBadge, stockBadgeLabel = UIKit.badge(stock.Button, Colors.Red, "0")
 	upgradesAlert = UIKit.badge(upgrades.Button, Colors.Yellow, "!")
+	rebirthAlert = UIKit.badge(rebirth.Button, Colors.Yellow, "!")
 end
 
 -- Delivery timer -------------------------------------------------------------------
@@ -332,6 +433,13 @@ function HUD.refreshBadges()
 		UIKit.pop(buttons.Upgrades.Button, 0.2)
 	end
 	upgradesAlert.Visible = affordable
+
+	local canRebirth = data ~= nil and data.Rebirths ~= nil and data.Cash >= Progression.rebirthCost(data.Rebirths)
+	if canRebirth and not rebirthAlert.Visible then
+		UIKit.pop(buttons.Rebirth.Button, 0.25)
+	end
+	rebirthAlert.Visible = canRebirth
+	refreshLevel()
 end
 
 function HUD.pulseUpgrades()
@@ -418,6 +526,7 @@ end
 function HUD.init(gui: ScreenGui)
 	screen = gui
 	buildCurrency()
+	buildLevel()
 	buildButtons()
 	buildDelivery()
 	buildBoosts()

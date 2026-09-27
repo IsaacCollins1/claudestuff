@@ -15,6 +15,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage.Shared
 local Config = require(Shared.Config)
 local Items = require(Shared.Items)
+local Products = require(Shared.Products)
+local Progression = require(Shared.Progression)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Upgrades = require(Shared.Upgrades)
@@ -43,6 +45,13 @@ export type Data = {
 	Tutorial: TutorialState,
 	Boosts: { [string]: number }, -- boost key -> os.time() it ends
 	Receipts: { string }, -- recent Robux purchase ids (so a purchase is never granted twice)
+	-- Progression (kept through rebirths)
+	Level: number,
+	Xp: number, -- towards the next level
+	Sold: { [string]: number }, -- units sold per product id (stars)
+	Rebirths: number,
+	RebirthTokens: number,
+	RebirthPerks: { [string]: number },
 }
 
 type Profile = {
@@ -91,6 +100,14 @@ local function isAccessError(message: string): boolean
 		or string.find(lower, "not allowed", 1, true) ~= nil
 end
 
+local function defaultPerks(): { [string]: number }
+	local perks = {}
+	for id in Progression.Perks do
+		perks[id] = 0
+	end
+	return perks
+end
+
 local function defaultData(): Data
 	return {
 		Version = DATA_VERSION,
@@ -104,6 +121,12 @@ local function defaultData(): Data
 		Tutorial = { Step = 1, Done = false },
 		Boosts = {},
 		Receipts = {},
+		Level = 1,
+		Xp = 0,
+		Sold = {},
+		Rebirths = 0,
+		RebirthTokens = 0,
+		RebirthPerks = defaultPerks(),
 	}
 end
 
@@ -184,6 +207,30 @@ local function reconcile(raw: unknown): Data
 			if type(receipt) == "string" and #data.Receipts < 100 then
 				table.insert(data.Receipts, receipt)
 			end
+		end
+	end
+
+	if source.Level ~= nil then
+		data.Level = cleanNumber(source.Level, 1, 1, Progression.MaxLevel)
+		data.Xp = cleanNumber(source.Xp, 0, 0, 1e12)
+	else
+		-- Saves from before levels: start at the level that unlocks the products
+		-- their shop size used to give them.
+		local legacy = { 1, 10, 22 }
+		data.Level = legacy[math.clamp(data.Upgrades.StoreSize, 1, #legacy)]
+	end
+	if type(source.Sold) == "table" then
+		for id, count in source.Sold do
+			if type(id) == "string" and Products.ById[id] then
+				data.Sold[id] = cleanNumber(count, 0, 0, 1e12)
+			end
+		end
+	end
+	data.Rebirths = cleanNumber(source.Rebirths, 0, 0, 1e6)
+	data.RebirthTokens = cleanNumber(source.RebirthTokens, 0, 0, 1e6)
+	if type(source.RebirthPerks) == "table" then
+		for id, def in Progression.Perks do
+			data.RebirthPerks[id] = cleanNumber(source.RebirthPerks[id], 0, 0, #def.Costs)
 		end
 	end
 	return data
@@ -459,6 +506,12 @@ function PlayerData.snapshot(player: Player): { [string]: any }?
 		Saving = PlayerData.canSave(),
 		Tutorial = { Step = data.Tutorial.Step, Done = data.Tutorial.Done },
 		BoostEnds = boostEnds,
+		Level = data.Level,
+		Xp = data.Xp,
+		Sold = table.clone(data.Sold),
+		Rebirths = data.Rebirths,
+		RebirthTokens = data.RebirthTokens,
+		RebirthPerks = table.clone(data.RebirthPerks),
 	}
 	for _, extra in PlayerData.SnapshotExtras do
 		extra(player, snapshot)
@@ -476,7 +529,7 @@ function PlayerData.updateLeaderstats(player: Player)
 	if not leaderstats then
 		local folder = Instance.new("Folder")
 		folder.Name = "leaderstats"
-		for _, name in { "Value", "Cash", "Sold" } do
+		for _, name in { "Value", "Rebirths", "Cash", "Sold" } do
 			local stat = Instance.new("IntValue")
 			stat.Name = name
 			stat.Parent = folder
@@ -486,6 +539,7 @@ function PlayerData.updateLeaderstats(player: Player)
 	end
 	local values: { [string]: number } = {
 		Value = math.floor(PlayerData.storeValue(player)),
+		Rebirths = data.Rebirths,
 		Cash = data.Cash,
 		Sold = data.Stats.ItemsSold,
 	}

@@ -20,6 +20,13 @@ export type Snapshot = {
 	BoostEnds: { [string]: number }, -- boost key -> workspace:GetServerTimeNow() it ends
 	Passes: { [string]: boolean }?,
 	IsStudio: boolean?,
+	-- Progression
+	Level: number,
+	Xp: number,
+	Sold: { [string]: number },
+	Rebirths: number,
+	RebirthTokens: number,
+	RebirthPerks: { [string]: number },
 }
 
 local State = {}

@@ -91,7 +91,7 @@ function Deliveries.start(session: Session)
 		player:SetAttribute("NextDeliveryAt", workspace:GetServerTimeNow() + Config.FirstDeliveryDelay)
 		task.wait(Config.FirstDeliveryDelay)
 		while session.Alive do
-			local interval = rng:NextNumber(Config.DeliveryIntervalMin, Config.DeliveryIntervalMax)
+			local interval = rng:NextNumber(Config.DeliveryIntervalMin, Config.DeliveryIntervalMax) * Perks.deliveryIntervalMultiplier(player)
 			player:SetAttribute("NextDeliveryAt", workspace:GetServerTimeNow() + interval)
 			task.spawn(function()
 				local ok, err = pcall(function()

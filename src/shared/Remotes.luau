@@ -21,7 +21,7 @@ local RunService = game:GetService("RunService")
 local Remotes = {}
 
 local EVENTS = { "DataUpdate", "Notify", "Effect", "SelectProduct", "SkipTutorial", "Leaderboards" }
-local FUNCTIONS = { "BuyUpgrade", "GetData", "TestPurchase", "GetLeaderboards" }
+local FUNCTIONS = { "BuyUpgrade", "GetData", "TestPurchase", "GetLeaderboards", "Rebirth", "BuyRebirthPerk" }
 
 local FOLDER_NAME = "Remotes"
 

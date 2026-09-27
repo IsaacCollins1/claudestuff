@@ -13,10 +13,14 @@ local Events = {
 	BoxOpened = Signal.new() :: Signal.Signal<Player, number>,
 	-- (player, items placed) — only when the player stocks, not workers
 	ShelfStocked = Signal.new() :: Signal.Signal<Player, number>,
-	-- (shop owner, cash earned, items sold)
-	Sale = Signal.new() :: Signal.Signal<Player, number, number>,
+	-- (shop owner, cash earned, item keys sold)
+	Sale = Signal.new() :: Signal.Signal<Player, number, { string }>,
 	-- (player, upgrade id, new level)
 	UpgradeBought = Signal.new() :: Signal.Signal<Player, string, number>,
+	-- (player, new level)
+	LevelUp = Signal.new() :: Signal.Signal<Player, number>,
+	-- (player, rebirth count)
+	Rebirth = Signal.new() :: Signal.Signal<Player, number>,
 }
 
 return Events
