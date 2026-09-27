@@ -1,0 +1,5 @@
+# Build output (the committed, ready-to-open place is FillTheStore.rbxlx at the repo root)
+build/
+sourcemap.json
+*.rbxl.lock
+*.rbxlx.lock
