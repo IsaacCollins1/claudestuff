@@ -190,6 +190,7 @@ return BoxVisual
           <string name="Source"><![CDATA[--!strict
 -- Small helpers for building things out of plain Parts.
 -- Used by the server (stores, trucks, NPCs) and the client (effects).
+-- Round shapes are built low-poly style in LowPoly.
 
 local Build = {}
 
@@ -214,64 +215,6 @@ function Build.part(
 	part.Material = material or Enum.Material.SmoothPlastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Parent = parent
-	return part
-end
-
--- Upright cylinder whose height runs along the Y axis of `cframe`.
-function Build.cylinder(
-	parent: Instance?,
-	name: string,
-	height: number,
-	diameter: number,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local part =
-		Build.part(nil, name, Vector3.new(height, diameter, diameter), cframe * CFrame.Angles(0, 0, math.pi / 2), color, material)
-	part.Shape = Enum.PartType.Cylinder
-	part.Parent = parent
-	return part
-end
-
--- Cylinder lying along the X axis of `cframe` (wheels, rolls on their side...).
-function Build.sideCylinder(
-	parent: Instance?,
-	name: string,
-	length: number,
-	diameter: number,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local part = Build.part(nil, name, Vector3.new(length, diameter, diameter), cframe, color, material)
-	part.Shape = Enum.PartType.Cylinder
-	part.Parent = parent
-	return part
-end
-
-function Build.ball(
-	parent: Instance?,
-	name: string,
-	diameter: number,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local part = Build.part(nil, name, Vector3.new(diameter, diameter, diameter), cframe, color, material)
-	part.Shape = Enum.PartType.Ball
-	part.Parent = parent
-	return part
-end
-
--- Stretched sphere (egg / pillow / bush shapes) that fills `size`: a block
--- with a sphere mesh, since Ball parts are always perfectly round.
-function Build.ellipsoid(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
-	local part = Build.part(nil, name, size, cframe, color, material)
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Sphere
-	mesh.Parent = part
 	part.Parent = parent
 	return part
 end
@@ -574,6 +517,295 @@ return Items
       </Item>
       <Item class="ModuleScript" referent="16">
         <Properties>
+          <string name="Name">LowPoly</string>
+          <string name="Source"><![CDATA[--!strict
+-- Low-poly shapes made from ordinary Parts, for a faceted, flat-shaded look:
+--
+--   hexPrism   six-sided "cylinder" (3 overlapping blocks) — trunks, poles, cans, wheels
+--   triangle   any 3D triangle (2 thin WedgeParts, the classic part-triangle trick)
+--   solid      a closed faceted shape from vertices + triangle faces
+--   gem        jittered icosahedron / octahedron — foliage, bushes, rounded bits
+--   pyramid    n-sided pyramid — pine tree tiers, parasols
+--   bevelBox   box with chamfered top edges — hedges
+--   diamond    a single block turned on its corner — tiny round things (bulbs, berries)
+--
+-- Roblox lights every facet separately, which gives the flat-shaded low-poly look.
+
+local Build = require(script.Parent.Build)
+
+local LowPoly = {}
+
+LowPoly.FacetThickness = 0.08
+
+-- Six-sided prism standing along cframe's Y axis. `width` is measured across the corners.
+function LowPoly.hexPrism(
+	parent: Instance?,
+	name: string,
+	height: number,
+	width: number,
+	cframe: CFrame,
+	color: Color3,
+	material: Enum.Material?
+): { BasePart }
+	local radius = width / 2
+	local apothem = radius * math.sqrt(3) / 2
+	local parts: { BasePart } = {}
+	for index = 0, 2 do
+		local part = Build.part(parent, name, Vector3.new(radius, height, apothem * 2), cframe * CFrame.Angles(0, math.rad(60 * index), 0), color, material)
+		table.insert(parts, part)
+	end
+	return parts
+end
+
+-- Six-sided prism lying along cframe's X axis (wheels, rolls on their side).
+function LowPoly.sideHexPrism(
+	parent: Instance?,
+	name: string,
+	length: number,
+	width: number,
+	cframe: CFrame,
+	color: Color3,
+	material: Enum.Material?
+): { BasePart }
+	return LowPoly.hexPrism(parent, name, length, width, cframe * CFrame.Angles(0, 0, math.pi / 2), color, material)
+end
+
+-- A block balanced on its corner: reads as a little faceted gem.
+function LowPoly.diamond(parent: Instance?, name: string, size: number, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	return Build.part(parent, name, Vector3.new(size, size, size) * 0.72, cframe * CFrame.Angles(math.rad(45), 0, math.rad(35.26)), color, material)
+end
+
+-- Triangle a-b-c made of two thin wedges. If `inside` is given, the facet is
+-- nudged towards it so its outer face sits exactly on the triangle.
+function LowPoly.triangle(
+	parent: Instance?,
+	name: string,
+	a: Vector3,
+	b: Vector3,
+	c: Vector3,
+	color: Color3,
+	inside: Vector3?,
+	material: Enum.Material?
+): { BasePart }
+	-- Make bc the longest edge, so the foot of the height from `a` lands on it.
+	local ab, ac, bc = b - a, c - a, c - b
+	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
+	if abd > acd and abd > bcd then
+		c, a = a, c
+	elseif acd > bcd and acd > abd then
+		a, b = b, a
+	end
+	ab, ac, bc = b - a, c - a, c - b
+	local normal = ac:Cross(ab)
+	if normal.Magnitude < 1e-6 then
+		return {} -- degenerate (flat) triangle
+	end
+	local right = normal.Unit
+	local up = bc:Cross(right).Unit
+	local back = bc.Unit
+	local height = math.abs(ab:Dot(up))
+	local thickness = LowPoly.FacetThickness
+	local offset = Vector3.zero
+	if inside then
+		offset = (if (inside - a):Dot(right) > 0 then right else -right) * (thickness / 2)
+	end
+	local first = Build.wedge(
+		parent,
+		name,
+		Vector3.new(thickness, height, math.abs(ab:Dot(back))),
+		CFrame.fromMatrix((a + b) / 2 + offset, right, up, back),
+		color,
+		material
+	)
+	local second = Build.wedge(
+		parent,
+		name,
+		Vector3.new(thickness, height, math.abs(ac:Dot(back))),
+		CFrame.fromMatrix((a + c) / 2 + offset, -right, up, -back),
+		color,
+		material
+	)
+	return { first, second }
+end
+
+-- A closed faceted shape. `vertices` are in cframe's local space; each face is
+-- three vertex indices. `faceColors` (optional) cycles colours face by face.
+function LowPoly.solid(
+	parent: Instance?,
+	name: string,
+	vertices: { Vector3 },
+	faces: { { number } },
+	cframe: CFrame,
+	color: Color3,
+	faceColors: { Color3 }?,
+	material: Enum.Material?
+): { BasePart }
+	local world = {}
+	local center = Vector3.zero
+	for index, vertex in vertices do
+		world[index] = cframe:PointToWorldSpace(vertex)
+		center += world[index]
+	end
+	center /= #vertices
+	local parts: { BasePart } = {}
+	for index, face in faces do
+		local faceColor = if faceColors then faceColors[(index - 1) % #faceColors + 1] else color
+		for _, part in LowPoly.triangle(parent, name, world[face[1]], world[face[2]], world[face[3]], faceColor, center, material) do
+			table.insert(parts, part)
+		end
+	end
+	return parts
+end
+
+-- Faces of a convex point set whose edges all have length `edge`.
+local function facesWithEdge(vertices: { Vector3 }, edge: number): { { number } }
+	local faces = {}
+	local function isEdge(i: number, j: number): boolean
+		return math.abs((vertices[i] - vertices[j]).Magnitude - edge) < 1e-3
+	end
+	for i = 1, #vertices do
+		for j = i + 1, #vertices do
+			for k = j + 1, #vertices do
+				if isEdge(i, j) and isEdge(j, k) and isEdge(i, k) then
+					table.insert(faces, { i, j, k })
+				end
+			end
+		end
+	end
+	return faces
+end
+
+local ICOSAHEDRON: { Vector3 } = {}
+local ICOSAHEDRON_FACES: { { number } }
+do
+	local phi = (1 + math.sqrt(5)) / 2
+	for _, s1 in { -1, 1 } do
+		for _, s2 in { -1, 1 } do
+			table.insert(ICOSAHEDRON, Vector3.new(0, s1, s2 * phi))
+			table.insert(ICOSAHEDRON, Vector3.new(s1, s2 * phi, 0))
+			table.insert(ICOSAHEDRON, Vector3.new(s2 * phi, 0, s1))
+		end
+	end
+	ICOSAHEDRON_FACES = facesWithEdge(ICOSAHEDRON, 2)
+	local radius = ICOSAHEDRON[1].Magnitude
+	for index, vertex in ICOSAHEDRON do
+		ICOSAHEDRON[index] = vertex / radius
+	end
+end
+
+local OCTAHEDRON: { Vector3 } = {
+	Vector3.new(1, 0, 0),
+	Vector3.new(-1, 0, 0),
+	Vector3.new(0, 1, 0),
+	Vector3.new(0, -1, 0),
+	Vector3.new(0, 0, 1),
+	Vector3.new(0, 0, -1),
+}
+local OCTAHEDRON_FACES = facesWithEdge(OCTAHEDRON, math.sqrt(2))
+
+-- A lumpy faceted blob filling roughly `size`: an icosahedron (20 facets), or
+-- an octahedron (8 facets) when `simple` is true. `seed` varies the lumps and
+-- shades so no two look the same.
+function LowPoly.gem(
+	parent: Instance?,
+	name: string,
+	size: Vector3,
+	cframe: CFrame,
+	color: Color3,
+	seed: number,
+	simple: boolean?,
+	material: Enum.Material?
+): { BasePart }
+	local rng = Random.new(seed)
+	local base: { Vector3 } = if simple then OCTAHEDRON else ICOSAHEDRON
+	local faces: { { number } } = if simple then OCTAHEDRON_FACES else ICOSAHEDRON_FACES
+	local half = size / 2
+	local vertices = {}
+	for index, vertex in base do
+		local lump = rng:NextNumber(0.86, 1.1)
+		vertices[index] = Vector3.new(vertex.X * half.X, vertex.Y * half.Y, vertex.Z * half.Z) * lump
+	end
+	-- Slightly different shades per facet, for that hand-painted low-poly look.
+	local shades = {}
+	for index = 1, #faces do
+		local amount = rng:NextNumber(-0.08, 0.08)
+		shades[index] = if amount > 0 then color:Lerp(Color3.new(1, 1, 1), amount) else color:Lerp(Color3.new(0, 0, 0), -amount)
+	end
+	-- Turn it randomly so lumps don't line up between neighbours.
+	local turned = cframe * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	return LowPoly.solid(parent, name, vertices, faces, turned, color, shades, material)
+end
+
+-- n-sided pyramid standing on cframe (base at cframe.Y, apex `height` above).
+-- `width` is across the corners. `faceColors` can stripe it (parasols).
+function LowPoly.pyramid(
+	parent: Instance?,
+	name: string,
+	sides: number,
+	width: number,
+	height: number,
+	cframe: CFrame,
+	color: Color3,
+	faceColors: { Color3 }?,
+	withBase: boolean?,
+	material: Enum.Material?
+): { BasePart }
+	local radius = width / 2
+	local vertices = { Vector3.new(0, height, 0) }
+	local faces = {}
+	for index = 0, sides - 1 do
+		local angle = index / sides * math.pi * 2
+		table.insert(vertices, Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius))
+		table.insert(faces, { 1, 2 + index, 2 + (index + 1) % sides })
+	end
+	local parts: { BasePart } = {}
+	-- (The centre point used to push facets inwards sits inside the pyramid.)
+	local facets = LowPoly.solid(parent, name, vertices, faces, cframe, color, faceColors, material)
+	for _, part in facets do
+		table.insert(parts, part)
+	end
+	if withBase then
+		local bottom = Vector3.new(0, 0, 0)
+		for index = 0, sides - 1 do
+			local a = cframe:PointToWorldSpace(vertices[2 + index])
+			local b = cframe:PointToWorldSpace(vertices[2 + (index + 1) % sides])
+			for _, part in LowPoly.triangle(parent, name, cframe:PointToWorldSpace(bottom), a, b, color, cframe:PointToWorldSpace(Vector3.new(0, height / 3, 0)), material) do
+				table.insert(parts, part)
+			end
+		end
+	end
+	return parts
+end
+
+-- Box with its two long top edges chamfered (runs along X).
+function LowPoly.bevelBox(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3, bevel: number, material: Enum.Material?): { BasePart }
+	local parts: { BasePart } = {}
+	local bodyHeight = size.Y - bevel
+	table.insert(parts, Build.part(parent, name, Vector3.new(size.X, bodyHeight, size.Z), cframe * CFrame.new(0, -bevel / 2, 0), color, material))
+	local topY = size.Y / 2 - bevel / 2
+	table.insert(parts, Build.part(parent, name, Vector3.new(size.X, bevel, size.Z - bevel * 2), cframe * CFrame.new(0, topY, 0), color, material))
+	for _, side in { -1, 1 } do
+		-- Wedge slopes fall towards their local -Z, so turn the back one round.
+		local turn = if side < 0 then CFrame.new() else CFrame.Angles(0, math.pi, 0)
+		local wedgeCFrame = cframe * CFrame.new(0, topY, side * (size.Z / 2 - bevel / 2)) * turn
+		table.insert(parts, Build.wedge(parent, name, Vector3.new(size.X, bevel, bevel), wedgeCFrame, color:Lerp(Color3.new(1, 1, 1), 0.06), material))
+	end
+	return parts
+end
+
+-- Apply the same property to a list of parts (e.g. everything from hexPrism).
+function LowPoly.each(parts: { BasePart }, apply: (part: BasePart) -> ())
+	for _, part in parts do
+		apply(part)
+	end
+end
+
+return LowPoly
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="17">
+        <Properties>
           <string name="Name">ModelLibrary</string>
           <string name="Source"><![CDATA[--!strict
 -- Drop-in 3D models.
@@ -661,7 +893,7 @@ return ModelLibrary
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="17">
+      <Item class="ModuleScript" referent="18">
         <Properties>
           <string name="Name">Monetization</string>
           <string name="Source"><![CDATA[--!strict
@@ -787,13 +1019,13 @@ return Monetization
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="18">
+      <Item class="ModuleScript" referent="19">
         <Properties>
           <string name="Name">ProductVisuals</string>
           <string name="Source"><![CDATA[--!strict
 -- Builds the little 3D product models seen on shelves, in customers' baskets
--- and popping out of opened boxes. Built from Parts (plus a few sphere
--- meshes for rounded shapes); a mesh model put in
+-- and popping out of opened boxes. Built from Parts in a low-poly style (round
+-- things are six-sided prisms, see LowPoly); a mesh model put in
 -- ReplicatedStorage.CustomModels.Products replaces the Part version (see ModelLibrary).
 --
 -- Models are built around the origin with their base at Y = 0 and their
@@ -803,6 +1035,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local Build = require(script.Parent.Build)
 local Items = require(script.Parent.Items)
+local LowPoly = require(script.Parent.LowPoly)
 local ModelLibrary = require(script.Parent.ModelLibrary)
 local Products = require(script.Parent.Products)
 local Variants = require(script.Parent.Variants)
@@ -814,35 +1047,34 @@ ProductVisuals.RainbowTag = "RainbowItem"
 local SILVER = Color3.fromRGB(205, 208, 215)
 local DARK = Color3.fromRGB(30, 30, 36)
 
--- kind: nil = block, "cylinder" = upright cylinder (size is height, diameter, diameter),
--- "round" = ellipsoid filling the size (a block with a sphere mesh).
-type Adder = (name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?) -> Part
+-- kind: nil = block, "hex" = upright six-sided prism (size is height, width, width).
+-- `props` are applied to every part made (e.g. Transparency, Material).
+type Adder = (name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?, props: { [string]: any }?) -> ()
 
 local shapes: { [string]: (add: Adder, product: Products.Product) -> () } = {}
 
+local GLASSY = { Transparency = 0.15 }
+local GLOW = { Material = Enum.Material.Neon }
+
 shapes.Bottle = function(add, p)
-	local body = add("Body", Vector3.new(0.85, 0.5, 0.5), CFrame.new(0, 0.425, 0), p.Color, "cylinder")
-	body.Transparency = 0.15
-	local shoulder = add("Shoulder", Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 0.85, 0), p.Color, "round")
-	shoulder.Transparency = 0.15
-	add("Label", Vector3.new(0.3, 0.52, 0.52), CFrame.new(0, 0.42, 0), p.Accent, "cylinder")
-	add("Neck", Vector3.new(0.18, 0.24, 0.24), CFrame.new(0, 1.12, 0), p.Color, "cylinder")
-	add("Cap", Vector3.new(0.12, 0.29, 0.29), CFrame.new(0, 1.25, 0), p.Accent, "cylinder")
+	add("Body", Vector3.new(0.72, 0.5, 0.5), CFrame.new(0, 0.36, 0), p.Color, "hex", GLASSY)
+	add("Label", Vector3.new(0.3, 0.54, 0.54), CFrame.new(0, 0.38, 0), p.Accent, "hex")
+	add("Shoulder", Vector3.new(0.24, 0.36, 0.36), CFrame.new(0, 0.84, 0), p.Color, "hex", GLASSY)
+	add("Neck", Vector3.new(0.16, 0.2, 0.16), CFrame.new(0, 1.03, 0), p.Color, nil, GLASSY)
+	add("Cap", Vector3.new(0.22, 0.14, 0.22), CFrame.new(0, 1.17, 0) * CFrame.Angles(0, math.rad(45), 0), p.Accent)
 end
 
 shapes.Can = function(add, p)
-	add("Body", Vector3.new(0.8, 0.5, 0.5), CFrame.new(0, 0.44, 0), p.Color, "cylinder")
-	add("Band", Vector3.new(0.25, 0.52, 0.52), CFrame.new(0, 0.45, 0), p.Accent, "cylinder")
-	add("Bottom", Vector3.new(0.05, 0.44, 0.44), CFrame.new(0, 0.025, 0), SILVER, "cylinder")
-	add("Top", Vector3.new(0.06, 0.44, 0.44), CFrame.new(0, 0.87, 0), SILVER, "cylinder")
-	add("Tab", Vector3.new(0.14, 0.03, 0.09), CFrame.new(0, 0.91, -0.08), SILVER)
+	add("Body", Vector3.new(0.8, 0.5, 0.5), CFrame.new(0, 0.4, 0), p.Color, "hex")
+	add("Band", Vector3.new(0.25, 0.53, 0.53), CFrame.new(0, 0.44, 0), p.Accent, "hex")
+	add("Top", Vector3.new(0.06, 0.44, 0.44), CFrame.new(0, 0.82, 0), SILVER, "hex")
 end
 
 shapes.Bag = function(add, p)
-	-- A puffy crisp packet: flat edges with a pillowy middle and crimped ends.
+	-- A puffy crisp packet: a faceted pillow with crimped ends.
 	add("Body", Vector3.new(0.7, 0.84, 0.16), CFrame.new(0, 0.48, 0), p.Color)
-	add("Puff", Vector3.new(0.68, 0.78, 0.38), CFrame.new(0, 0.48, 0), p.Color, "round")
-	add("Band", Vector3.new(0.5, 0.26, 0.05), CFrame.new(0, 0.46, -0.17), p.Accent, "round")
+	add("Puff", Vector3.new(0.66, 0.3, 0.3), CFrame.new(0, 0.48, 0) * CFrame.Angles(math.rad(45), 0, 0), p.Color)
+	add("Band", Vector3.new(0.5, 0.26, 0.05), CFrame.new(0, 0.46, -0.22), p.Accent)
 	add("CrimpTop", Vector3.new(0.74, 0.08, 0.12), CFrame.new(0, 0.93, 0), p.Accent)
 	add("CrimpBottom", Vector3.new(0.74, 0.08, 0.12), CFrame.new(0, 0.04, 0), p.Accent)
 end
@@ -862,21 +1094,20 @@ end
 
 shapes.Roll = function(add, p)
 	for index, offset in { Vector2.new(-0.18, 0.2), Vector2.new(0.18, 0.2), Vector2.new(-0.18, 0.6), Vector2.new(0.18, 0.6) } do
-		add("Roll" .. index, Vector3.new(0.4, 0.34, 0.34), CFrame.new(offset.X, offset.Y, 0), p.Color, "cylinder")
+		add("Roll" .. index, Vector3.new(0.4, 0.36, 0.36), CFrame.new(offset.X, offset.Y, 0), p.Color, "hex")
 	end
-	local wrap = add("Wrap", Vector3.new(0.74, 0.12, 0.37), CFrame.new(0, 0.42, 0), p.Accent)
-	wrap.Transparency = 0.2
+	add("Wrap", Vector3.new(0.74, 0.12, 0.37), CFrame.new(0, 0.42, 0), p.Accent, nil, { Transparency = 0.2 })
 end
 
 shapes.Pizza = function(add, p)
 	add("Box1", Vector3.new(0.85, 0.16, 0.85), CFrame.new(0, 0.08, 0), p.Color)
 	add("Box2", Vector3.new(0.85, 0.16, 0.85), CFrame.new(0, 0.25, 0) * CFrame.Angles(0, math.rad(6), 0), p.Color)
-	add("Logo", Vector3.new(0.02, 0.55, 0.55), CFrame.new(0, 0.34, 0), p.Accent, "cylinder")
+	add("Logo", Vector3.new(0.02, 0.55, 0.55), CFrame.new(0, 0.34, 0) * CFrame.Angles(0, math.rad(6), 0), p.Accent, "hex")
 end
 
 shapes.Spray = function(add, p)
-	add("Body", Vector3.new(0.75, 0.42, 0.42), CFrame.new(0, 0.375, 0), p.Color, "cylinder")
-	add("Label", Vector3.new(0.25, 0.44, 0.44), CFrame.new(0, 0.35, 0), p.Accent, "cylinder")
+	add("Body", Vector3.new(0.75, 0.42, 0.42), CFrame.new(0, 0.375, 0), p.Color, "hex")
+	add("Label", Vector3.new(0.25, 0.45, 0.45), CFrame.new(0, 0.35, 0), p.Accent, "hex")
 	add("Head", Vector3.new(0.22, 0.2, 0.34), CFrame.new(0, 0.85, -0.05), p.Accent)
 	add("Nozzle", Vector3.new(0.08, 0.08, 0.12), CFrame.new(0, 0.87, -0.26), DARK)
 end
@@ -892,14 +1123,12 @@ end
 shapes.Phone = function(add, p)
 	add("Stand", Vector3.new(0.34, 0.08, 0.3), CFrame.new(0, 0.04, 0), SILVER)
 	add("Body", Vector3.new(0.42, 0.8, 0.1), CFrame.new(0, 0.48, 0.02), p.Color)
-	local screen = add("Screen", Vector3.new(0.36, 0.68, 0.02), CFrame.new(0, 0.48, -0.04), p.Accent)
-	screen.Material = Enum.Material.Neon
+	add("Screen", Vector3.new(0.36, 0.68, 0.02), CFrame.new(0, 0.48, -0.04), p.Accent, nil, GLOW)
 end
 
 shapes.Console = function(add, p)
 	add("Body", Vector3.new(0.9, 0.28, 0.6), CFrame.new(0, 0.14, 0), p.Color)
-	local stripe = add("Stripe", Vector3.new(0.91, 0.04, 0.61), CFrame.new(0, 0.2, 0), p.Accent)
-	stripe.Material = Enum.Material.Neon
+	add("Stripe", Vector3.new(0.91, 0.04, 0.61), CFrame.new(0, 0.2, 0), p.Accent, nil, GLOW)
 	add("Pad", Vector3.new(0.36, 0.1, 0.22), CFrame.new(0.15, 0.33, -0.1), DARK)
 end
 
@@ -907,16 +1136,14 @@ shapes.Laptop = function(add, p)
 	add("Base", Vector3.new(0.85, 0.06, 0.6), CFrame.new(0, 0.03, 0), p.Color)
 	local hinge = CFrame.new(0, 0.06, 0.28) * CFrame.Angles(math.rad(15), 0, 0)
 	add("Lid", Vector3.new(0.85, 0.55, 0.05), hinge * CFrame.new(0, 0.275, 0), p.Color)
-	local screen = add("Screen", Vector3.new(0.75, 0.45, 0.01), hinge * CFrame.new(0, 0.275, -0.03), p.Accent)
-	screen.Material = Enum.Material.Neon
+	add("Screen", Vector3.new(0.75, 0.45, 0.01), hinge * CFrame.new(0, 0.275, -0.03), p.Accent, nil, GLOW)
 end
 
 shapes.TV = function(add, p)
 	add("Foot", Vector3.new(0.4, 0.04, 0.25), CFrame.new(0, 0.02, 0), SILVER)
 	add("Neck", Vector3.new(0.1, 0.18, 0.08), CFrame.new(0, 0.12, 0), SILVER)
 	add("Frame", Vector3.new(1, 0.62, 0.08), CFrame.new(0, 0.52, 0), p.Color)
-	local screen = add("Screen", Vector3.new(0.9, 0.52, 0.02), CFrame.new(0, 0.52, -0.05), p.Accent)
-	screen.Material = Enum.Material.Neon
+	add("Screen", Vector3.new(0.9, 0.52, 0.02), CFrame.new(0, 0.52, -0.05), p.Accent, nil, GLOW)
 end
 
 local function addSparkles(part: BasePart, color: Color3, rate: number)
@@ -975,25 +1202,29 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 	model:SetAttribute("ItemKey", key)
 
 	local parts: { BasePart } = {}
-	local function add(name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?): Part
+	local function add(name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?, props: { [string]: any }?)
 		local scaledCFrame = CFrame.new(cframe.Position * scale) * cframe.Rotation
-		local part
-		if kind == "cylinder" then
-			-- Sizes for cylinders are given as (height, diameter, diameter) standing upright.
-			part = Build.cylinder(nil, name, size.X * scale, size.Y * scale, scaledCFrame, color)
-		elseif kind == "round" then
-			part = Build.ellipsoid(nil, name, size * scale, scaledCFrame, color)
+		local made: { BasePart }
+		if kind == "hex" then
+			-- Sizes for hex prisms are given as (height, width, width) standing upright.
+			made = LowPoly.hexPrism(nil, name, size.X * scale, size.Y * scale, scaledCFrame, color)
 		else
-			part = Build.part(nil, name, size * scale, scaledCFrame, color)
+			made = { Build.part(nil, name, size * scale, scaledCFrame, color) }
 		end
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-		part.Massless = true
-		part.Parent = model
-		table.insert(parts, part)
-		return part
+		for _, part in made do
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.CastShadow = false
+			part.Massless = true
+			if props then
+				for key, value in props do
+					(part :: any)[key] = value
+				end
+			end
+			part.Parent = model
+			table.insert(parts, part)
+		end
 	end
 
 	local builder = shapes[product.Shape] or shapes.Cereal
@@ -1025,17 +1256,29 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 		return model
 	end
 
+	-- Pieces of one prism share a name, so colour by name to keep them matching.
+	local nameIndex: { [string]: number } = {}
+	local nextIndex = 0
+	local function pieceIndex(part: BasePart): number
+		local index = nameIndex[part.Name]
+		if not index then
+			nextIndex += 1
+			index = nextIndex
+			nameIndex[part.Name] = index
+		end
+		return index
+	end
 	if variant.Id == "Golden" then
-		for index, part in parts do
-			part.Color = if index % 2 == 0 then Color3.fromRGB(255, 225, 110) else Variants.GoldColor
+		for _, part in parts do
+			part.Color = if pieceIndex(part) % 2 == 0 then Color3.fromRGB(255, 225, 110) else Variants.GoldColor
 			part.Material = Enum.Material.SmoothPlastic
 			part.Reflectance = 0.25
 			part.Transparency = 0
 		end
 		addSparkles(parts[1], Color3.fromRGB(255, 230, 120), 3)
 	elseif variant.Id == "Rainbow" then
-		for index, part in parts do
-			part.Color = Color3.fromHSV((index * 0.17) % 1, 0.75, 1)
+		for _, part in parts do
+			part.Color = Color3.fromHSV((pieceIndex(part) * 0.17) % 1, 0.75, 1)
 			part.Material = Enum.Material.Neon
 			part.Transparency = 0
 		end
@@ -1053,7 +1296,7 @@ return ProductVisuals
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="19">
+      <Item class="ModuleScript" referent="20">
         <Properties>
           <string name="Name">Products</string>
           <string name="Source"><![CDATA[--!strict
@@ -1208,7 +1451,7 @@ return Products
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="20">
+      <Item class="ModuleScript" referent="21">
         <Properties>
           <string name="Name">Remotes</string>
           <string name="Source"><![CDATA[--!strict
@@ -1274,7 +1517,7 @@ return Remotes
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="21">
+      <Item class="ModuleScript" referent="22">
         <Properties>
           <string name="Name">Signal</string>
           <string name="Source"><![CDATA[--!strict
@@ -1326,7 +1569,7 @@ return Signal
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="22">
+      <Item class="ModuleScript" referent="23">
         <Properties>
           <string name="Name">Sounds</string>
           <string name="Source"><![CDATA[--!strict
@@ -1381,7 +1624,7 @@ return Sounds
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="23">
+      <Item class="ModuleScript" referent="24">
         <Properties>
           <string name="Name">StoreLevels</string>
           <string name="Source"><![CDATA[--!strict
@@ -1719,7 +1962,7 @@ return StoreLevels
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="24">
+      <Item class="ModuleScript" referent="25">
         <Properties>
           <string name="Name">Tutorial</string>
           <string name="Source"><![CDATA[--!strict
@@ -1782,7 +2025,7 @@ return Tutorial
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="25">
+      <Item class="ModuleScript" referent="26">
         <Properties>
           <string name="Name">Upgrades</string>
           <string name="Source"><![CDATA[--!strict
@@ -1980,7 +2223,7 @@ return Upgrades
 ]]></string>
         </Properties>
       </Item>
-      <Item class="ModuleScript" referent="26">
+      <Item class="ModuleScript" referent="27">
         <Properties>
           <string name="Name">Variants</string>
           <string name="Source"><![CDATA[--!strict
@@ -2049,19 +2292,19 @@ return Variants
       </Item>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="27">
+  <Item class="ServerScriptService" referent="28">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Folder" referent="28">
+    <Item class="Folder" referent="29">
       <Properties>
         <string name="Name">Server</string>
       </Properties>
-      <Item class="Folder" referent="29">
+      <Item class="Folder" referent="30">
         <Properties>
           <string name="Name">Builders</string>
         </Properties>
-        <Item class="ModuleScript" referent="30">
+        <Item class="ModuleScript" referent="31">
           <Properties>
             <string name="Name">LeaderboardBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -2193,7 +2436,7 @@ return LeaderboardBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="31">
+        <Item class="ModuleScript" referent="32">
           <Properties>
             <string name="Name">NpcBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -2628,12 +2871,14 @@ return NpcBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="32">
+        <Item class="ModuleScript" referent="33">
           <Properties>
             <string name="Name">PropBuilder</string>
             <string name="Source"><![CDATA[--!strict
 -- Decorative props built from Parts: benches, planters, bins, shopping carts,
 -- parked cars, pallets, a forklift, picnic tables, fences, hedges and trees.
+-- Everything is low-poly: round things are six-sided prisms or faceted
+-- gems made of wedge triangles (see Shared/LowPoly).
 --
 -- Every prop is built around `cframe`: its base sits on the ground and its
 -- front faces -Z. The detail parts are walk-through; props you'd expect to
@@ -2645,6 +2890,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Build = require(Shared.Build)
+local LowPoly = require(Shared.LowPoly)
 local ModelLibrary = require(Shared.ModelLibrary)
 
 local PropBuilder = {}
@@ -2661,6 +2907,11 @@ local LEAVES = {
 	Color3.fromRGB(76, 180, 80),
 	Color3.fromRGB(96, 198, 92),
 	Color3.fromRGB(62, 160, 74),
+}
+local PINES = {
+	Color3.fromRGB(46, 140, 80),
+	Color3.fromRGB(56, 156, 88),
+	Color3.fromRGB(70, 172, 96),
 }
 local FLOWERS = {
 	Color3.fromRGB(255, 95, 120),
@@ -2722,10 +2973,10 @@ end
 
 function PropBuilder.bin(parent: Instance, cframe: CFrame, color: Color3): Model
 	local model = newModel("Bin")
-	Build.cylinder(model, "Body", 2.6, 1.8, cframe * CFrame.new(0, 1.3, 0), color)
-	Build.cylinder(model, "Band", 0.3, 1.86, cframe * CFrame.new(0, 2.1, 0), Build.White)
-	Build.cylinder(model, "Lid", 0.3, 2.05, cframe * CFrame.new(0, 2.75, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
-	Build.ball(model, "Knob", 0.5, cframe * CFrame.new(0, 2.95, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
+	LowPoly.hexPrism(model, "Body", 2.6, 1.9, cframe * CFrame.new(0, 1.3, 0), color)
+	LowPoly.hexPrism(model, "Band", 0.3, 1.98, cframe * CFrame.new(0, 2.1, 0), Build.White)
+	LowPoly.hexPrism(model, "Lid", 0.3, 2.15, cframe * CFrame.new(0, 2.75, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
+	LowPoly.diamond(model, "Knob", 0.5, cframe * CFrame.new(0, 3, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
 	return finish(model, parent, cframe, Vector3.new(1.9, 3, 1.9))
 end
 
@@ -2739,10 +2990,10 @@ function PropBuilder.planter(parent: Instance, cframe: CFrame, length: number, s
 	local count = math.max(1, math.floor(length / 2))
 	for index = 1, count do
 		local x = -length / 2 + (index - 0.5) * (length / count)
-		Build.ellipsoid(model, "Bush", Vector3.new(2.2, 1.5, 1.9), cframe * CFrame.new(x, 2.1, 0), LEAVES[rng:NextInteger(1, #LEAVES)])
+		LowPoly.gem(model, "Bush", Vector3.new(2.3, 1.7, 2), cframe * CFrame.new(x, 2.2, 0), LEAVES[rng:NextInteger(1, #LEAVES)], rng:NextInteger(1, 1e6), true)
 		for _ = 1, 2 do
-			local flower = cframe * CFrame.new(x + rng:NextNumber(-0.7, 0.7), 2.75, rng:NextNumber(-0.5, 0.5))
-			Build.ball(model, "Flower", 0.55, flower, FLOWERS[rng:NextInteger(1, #FLOWERS)])
+			local flower = cframe * CFrame.new(x + rng:NextNumber(-0.7, 0.7), 2.85, rng:NextNumber(-0.5, 0.5))
+			LowPoly.diamond(model, "Flower", 0.6, flower, FLOWERS[rng:NextInteger(1, #FLOWERS)])
 		end
 	end
 	return finish(model, parent, cframe, nil)
@@ -2758,21 +3009,23 @@ function PropBuilder.flowerBed(parent: Instance, cframe: CFrame, size: Vector2, 
 		for z = -size.Y / 2 + 1, size.Y / 2 - 0.9, 1.5 do
 			local base = cframe * CFrame.new(x + rng:NextNumber(-0.3, 0.3), 0, z + rng:NextNumber(-0.3, 0.3))
 			Build.part(model, "Stem", Vector3.new(0.15, 1, 0.15), base * CFrame.new(0, 0.9, 0), LEAVES[3])
-			Build.ball(model, "Flower", 0.75, base * CFrame.new(0, 1.5, 0), FLOWERS[rng:NextInteger(1, #FLOWERS)])
+			LowPoly.diamond(model, "Flower", 0.8, base * CFrame.new(0, 1.5, 0), FLOWERS[rng:NextInteger(1, #FLOWERS)])
 		end
 	end
 	return finish(model, parent, cframe, nil)
 end
 
--- A row of round bushes (runs along X).
+-- A chunky low-poly hedge (runs along X): bevelled blocks of slightly different heights.
 function PropBuilder.hedge(parent: Instance, cframe: CFrame, length: number, seed: number): Model
 	local model = newModel("Hedge")
 	local rng = Random.new(seed)
 	local count = math.max(1, math.floor(length / 3))
+	local step = length / count
 	for index = 1, count do
-		local x = -length / 2 + (index - 0.5) * (length / count)
-		local height = rng:NextNumber(2.4, 3.2)
-		Build.ellipsoid(model, "Bush", Vector3.new(3.6, height, 2.8), cframe * CFrame.new(x, height / 2, 0), LEAVES[rng:NextInteger(1, #LEAVES)])
+		local x = -length / 2 + (index - 0.5) * step
+		local height = rng:NextNumber(2.3, 3.1)
+		local depth = rng:NextNumber(2.5, 2.9)
+		LowPoly.bevelBox(model, "Bush", Vector3.new(step + 0.1, height, depth), cframe * CFrame.new(x, height / 2, 0), LEAVES[rng:NextInteger(1, #LEAVES)], 0.7)
 	end
 	return finish(model, parent, cframe, nil)
 end
@@ -2792,27 +3045,32 @@ function PropBuilder.fence(parent: Instance, cframe: CFrame, length: number): Mo
 	return finish(model, parent, cframe, nil)
 end
 
+-- Low-poly tree: a lumpy faceted crown on a six-sided trunk, or (every third
+-- seed) a pine made of three stacked six-sided cones.
 function PropBuilder.tree(parent: Instance, cframe: CFrame, scale: number, seed: number): Model
 	return swappable("Tree", Vector3.new(14, 16, 14) * scale, parent, cframe, function()
 		local model = newModel("Tree")
 		local rng = Random.new(seed)
-		Build.cylinder(model, "Trunk", 7 * scale, 1.5 * scale, cframe * CFrame.new(0, 3.5 * scale, 0), Color3.fromRGB(130, 88, 55))
-		Build.part(model, "Branch", Vector3.new(0.6, 3, 0.6) * scale, cframe * CFrame.new(1 * scale, 7 * scale, 0) * CFrame.Angles(0, 0, math.rad(-35)), Color3.fromRGB(130, 88, 55))
-		local clusters = {
-			{ Vector3.new(0, 9, 0), Vector3.new(8.5, 7, 8.5) },
-			{ Vector3.new(2.4, 11.2, 0.8), Vector3.new(5.5, 5, 5.5) },
-			{ Vector3.new(-2.2, 10.6, -1), Vector3.new(5, 4.6, 5) },
-			{ Vector3.new(0.4, 12.6, -0.6), Vector3.new(4.2, 3.6, 4.2) },
-		}
-		for index, cluster in clusters do
-			local color = LEAVES[(index + rng:NextInteger(0, 2)) % #LEAVES + 1]
-			Build.ellipsoid(model, "Leaves", cluster[2] * scale, cframe * CFrame.new(cluster[1] * scale), color)
-		end
-		-- A few apples for fun.
-		for _ = 1, 3 do
-			local angle = rng:NextNumber(0, math.pi * 2)
-			local offset = Vector3.new(math.cos(angle) * 4, rng:NextNumber(7.5, 10), math.sin(angle) * 4)
-			Build.ball(model, "Apple", 0.7 * scale, cframe * CFrame.new(offset * scale), Color3.fromRGB(235, 60, 60))
+		local bark = Color3.fromRGB(130, 88, 55)
+		if seed % 3 == 0 then
+			LowPoly.hexPrism(model, "Trunk", 6 * scale, 1.3 * scale, cframe * CFrame.new(0, 3 * scale, 0), bark)
+			for tier = 1, 3 do
+				local width = (9.6 - tier * 2.2) * scale
+				local baseY = (3 + tier * 2.7) * scale
+				local turn = CFrame.Angles(0, tier * 0.55 + rng:NextNumber(0, 0.3), 0)
+				LowPoly.pyramid(model, "Needles", 6, width, 4.8 * scale, cframe * CFrame.new(0, baseY, 0) * turn, PINES[tier])
+			end
+		else
+			LowPoly.hexPrism(model, "Trunk", 7 * scale, 1.5 * scale, cframe * CFrame.new(0, 3.5 * scale, 0), bark)
+			LowPoly.hexPrism(model, "Branch", 3 * scale, 0.6 * scale, cframe * CFrame.new(1 * scale, 7 * scale, 0) * CFrame.Angles(0, 0, math.rad(-35)), bark)
+			local leaves = LEAVES[rng:NextInteger(1, #LEAVES)]
+			LowPoly.gem(model, "Leaves", Vector3.new(9, 7.6, 9) * scale, cframe * CFrame.new(0, 9.8 * scale, 0), leaves, seed)
+			-- A few apples for fun.
+			for _ = 1, 3 do
+				local angle = rng:NextNumber(0, math.pi * 2)
+				local offset = Vector3.new(math.cos(angle) * 3.9, rng:NextNumber(7.8, 10), math.sin(angle) * 3.9)
+				LowPoly.diamond(model, "Apple", 0.8 * scale, cframe * CFrame.new(offset * scale), Color3.fromRGB(235, 60, 60))
+			end
 		end
 		return finish(model, parent, cframe, Vector3.new(1.6, 7, 1.6) * scale)
 	end)
@@ -2833,7 +3091,7 @@ function PropBuilder.cart(parent: Instance, cframe: CFrame, color: Color3): Mode
 		Build.part(model, "Upright", Vector3.new(0.14, 1.2, 0.14), at(x * 0.85, 1, 1.35), CHROME)
 		Build.part(model, "HandlePost", Vector3.new(0.12, 0.7, 0.12), at(x, 3.1, 1.75), CHROME)
 		for _, z in { -1.2, 1.2 } do
-			Build.sideCylinder(model, "Wheel", 0.25, 0.55, at(x * 0.8, 0.28, z), TYRE)
+			Build.part(model, "Wheel", Vector3.new(0.25, 0.5, 0.5), at(x * 0.8, 0.28, z) * CFrame.Angles(math.rad(45), 0, 0), TYRE)
 		end
 	end
 	for _, z in { -1.5, 1.5 } do
@@ -2850,7 +3108,7 @@ function PropBuilder.cartCorral(parent: Instance, cframe: CFrame, accent: Color3
 	local model = newModel("CartCorral")
 	for _, x in { -1.6, 1.6 } do
 		for _, z in { -3.4, 3.4 } do
-			Build.cylinder(model, "Post", 2.4, 0.3, cframe * CFrame.new(x, 1.2, z), METAL)
+			LowPoly.hexPrism(model, "Post", 2.4, 0.34, cframe * CFrame.new(x, 1.2, z), METAL)
 		end
 		Build.part(model, "Rail", Vector3.new(0.25, 0.25, 7), cframe * CFrame.new(x, 2.3, 0), accent)
 	end
@@ -2889,8 +3147,8 @@ function PropBuilder.car(parent: Instance, cframe: CFrame, color: Color3): Model
 			Build.part(model, "Mirror", Vector3.new(0.5, 0.35, 0.3), at(x * 2.6, 2.6, -1.6), trim)
 			Build.part(model, "Handle", Vector3.new(0.08, 0.15, 0.5), at(x * 2.53, 2.05, 0.2), CHROME)
 			for _, z in { -3.2, 3.2 } do
-				Build.sideCylinder(model, "Tyre", 0.8, 2, at(x * 2.3, 1, z), TYRE)
-				Build.sideCylinder(model, "Hubcap", 0.86, 0.9, at(x * 2.3, 1, z), CHROME)
+				LowPoly.sideHexPrism(model, "Tyre", 0.8, 2.1, at(x * 2.3, 1, z), TYRE)
+				LowPoly.sideHexPrism(model, "Hubcap", 0.86, 0.9, at(x * 2.3, 1, z), CHROME)
 			end
 		end
 		return finish(model, parent, cframe, Vector3.new(5.2, 4.2, 10.4))
@@ -2907,7 +3165,7 @@ function PropBuilder.parking(parent: Instance, cframe: CFrame, bays: number, bay
 	end
 	Build.part(model, "Kerb", Vector3.new(bays * bayWidth + 2, 0.3, 0.6), cframe * CFrame.new(0, 0.15, length / 2 + 0.7), Color3.fromRGB(235, 235, 240))
 	local signX = -bays * bayWidth / 2 - 1.8
-	Build.cylinder(model, "SignPost", 5, 0.3, cframe * CFrame.new(signX, 2.5, length / 2), METAL)
+	LowPoly.hexPrism(model, "SignPost", 5, 0.34, cframe * CFrame.new(signX, 2.5, length / 2), METAL)
 	local sign = Build.part(model, "Sign", Vector3.new(1.8, 1.8, 0.2), cframe * CFrame.new(signX, 5.3, length / 2 - 0.2), Color3.fromRGB(40, 110, 230))
 	Build.surfaceText(sign, Enum.NormalId.Front, "P", Build.White)
 	return finish(model, parent, cframe, nil)
@@ -2949,14 +3207,14 @@ function PropBuilder.forklift(parent: Instance, cframe: CFrame, color: Color3): 
 		Build.part(model, "Counterweight", Vector3.new(3.6, 1.8, 1.2), at(0, 1.6, 3.4), METAL)
 		Build.part(model, "Seat", Vector3.new(1.6, 0.5, 1.4), at(0, 2.65, 1.3), TYRE)
 		Build.part(model, "SeatBack", Vector3.new(1.6, 1.3, 0.3), at(0, 3.3, 2.05), TYRE)
-		Build.cylinder(model, "Steering", 0.12, 0.9, at(0, 3.2, -0.5) * CFrame.Angles(math.rad(-30), 0, 0), TYRE)
+		LowPoly.hexPrism(model, "Steering", 0.12, 0.9, at(0, 3.2, -0.5) * CFrame.Angles(math.rad(-30), 0, 0), TYRE)
 		for _, x in { -1.6, 1.6 } do
 			for _, z in { -1.3, 2.9 } do
 				Build.part(model, "GuardPost", Vector3.new(0.2, 3.2, 0.2), at(x, 4, z), METAL)
 			end
 			Build.part(model, "Mast", Vector3.new(0.3, 5.2, 0.3), at(x * 0.55, 2.9, -2), METAL)
-			Build.sideCylinder(model, "FrontWheel", 0.7, 1.6, at(x * 1.19, 0.8, -1.1), TYRE)
-			Build.sideCylinder(model, "RearWheel", 0.7, 1.3, at(x * 1.19, 0.65, 2.9), TYRE)
+			LowPoly.sideHexPrism(model, "FrontWheel", 0.7, 1.7, at(x * 1.19, 0.8, -1.1), TYRE)
+			LowPoly.sideHexPrism(model, "RearWheel", 0.7, 1.4, at(x * 1.19, 0.65, 2.9), TYRE)
 		end
 		Build.part(model, "Roof", Vector3.new(3.6, 0.2, 4.6), at(0, 5.7, 0.8), METAL)
 		Build.part(model, "Crossbar", Vector3.new(2, 0.3, 0.3), at(0, 5.4, -2), METAL)
@@ -2964,7 +3222,7 @@ function PropBuilder.forklift(parent: Instance, cframe: CFrame, color: Color3): 
 		for _, x in { -0.7, 0.7 } do
 			Build.part(model, "Fork", Vector3.new(0.4, 0.15, 3), at(x, 0.45, -3.8), CHROME)
 		end
-		local beacon = Build.ball(model, "Beacon", 0.6, at(0, 6, 1.6), Color3.fromRGB(255, 160, 30), Enum.Material.Neon)
+		local beacon = LowPoly.diamond(model, "Beacon", 0.7, at(0, 6, 1.6), Color3.fromRGB(255, 160, 30), Enum.Material.Neon)
 		beacon.CastShadow = false
 		return finish(model, parent, cframe, Vector3.new(3.8, 6, 5.4))
 	end)
@@ -2984,13 +3242,10 @@ function PropBuilder.picnicTable(parent: Instance, cframe: CFrame, parasol: Colo
 		Build.part(model, "Leg", Vector3.new(0.3, 2.5, 0.3), at(x, 1.25, 0), WOOD_DARK)
 		Build.part(model, "Brace", Vector3.new(0.3, 0.3, 5.4), at(x, 1.3, 0), WOOD_DARK)
 	end
-	Build.cylinder(model, "Pole", 5.6, 0.22, at(0, 3.3, 0), Build.White)
-	local stripes = { parasol, Build.White }
-	for ring = 1, 3 do
-		local width = 7.5 - ring * 1.8
-		Build.ellipsoid(model, "Canopy", Vector3.new(width, 1.4 - ring * 0.25, width), at(0, 5.7 + ring * 0.28, 0), stripes[ring % 2 + 1])
-	end
-	Build.ball(model, "Knob", 0.5, at(0, 6.9, 0), parasol)
+	LowPoly.hexPrism(model, "Pole", 5.6, 0.26, at(0, 3.3, 0), Build.White)
+	-- Eight-sided striped canopy.
+	LowPoly.pyramid(model, "Canopy", 8, 7.4, 1.7, at(0, 5.6, 0), parasol, { parasol, Build.White }, true)
+	LowPoly.diamond(model, "Knob", 0.5, at(0, 7.4, 0), parasol)
 	return finish(model, parent, cframe, Vector3.new(6, 2.8, 5.4))
 end
 
@@ -3001,7 +3256,7 @@ function PropBuilder.dumpster(parent: Instance, cframe: CFrame, color: Color3): 
 	Build.part(model, "Lid", Vector3.new(6.2, 0.3, 3.7), cframe * CFrame.new(0, 3.95, 0.1) * CFrame.Angles(math.rad(6), 0, 0), METAL)
 	for _, x in { -2.4, 2.4 } do
 		for _, z in { -1.2, 1.2 } do
-			Build.sideCylinder(model, "Wheel", 0.4, 0.8, cframe * CFrame.new(x, 0.4, z), TYRE)
+			LowPoly.sideHexPrism(model, "Wheel", 0.4, 0.85, cframe * CFrame.new(x, 0.4, z), TYRE)
 		end
 	end
 	return finish(model, parent, cframe, Vector3.new(6, 4, 3.6))
@@ -3010,17 +3265,18 @@ end
 -- Retro gumball machine for the shop front.
 function PropBuilder.gumballMachine(parent: Instance, cframe: CFrame, color: Color3): Model
 	local model = newModel("GumballMachine")
-	Build.cylinder(model, "Stand", 2.2, 0.5, cframe * CFrame.new(0, 1.1, 0), color)
+	LowPoly.hexPrism(model, "Stand", 2.2, 0.55, cframe * CFrame.new(0, 1.1, 0), color)
 	Build.part(model, "Base", Vector3.new(1.4, 1.1, 1.4), cframe * CFrame.new(0, 2.6, 0), color)
 	Build.part(model, "Slot", Vector3.new(0.4, 0.4, 0.1), cframe * CFrame.new(0, 2.6, -0.72), CHROME)
-	local globe = Build.ball(model, "Globe", 1.9, cframe * CFrame.new(0, 3.95, 0), GLASS, Enum.Material.Glass)
-	globe.Transparency = 0.55
+	LowPoly.each(LowPoly.gem(model, "Globe", Vector3.new(2, 2, 2), cframe * CFrame.new(0, 3.95, 0), GLASS, 11, true, Enum.Material.Glass), function(part)
+		part.Transparency = 0.55
+	end)
 	local rng = Random.new(7)
 	for _ = 1, 10 do
 		local offset = Vector3.new(rng:NextNumber(-0.45, 0.45), rng:NextNumber(-0.55, 0.1), rng:NextNumber(-0.45, 0.45))
-		Build.ball(model, "Gum", 0.42, cframe * CFrame.new(Vector3.new(0, 3.95, 0) + offset), FLOWERS[rng:NextInteger(1, #FLOWERS)])
+		LowPoly.diamond(model, "Gum", 0.45, cframe * CFrame.new(Vector3.new(0, 3.95, 0) + offset), FLOWERS[rng:NextInteger(1, #FLOWERS)])
 	end
-	Build.cylinder(model, "Cap", 0.3, 0.8, cframe * CFrame.new(0, 4.95, 0), color)
+	LowPoly.hexPrism(model, "Cap", 0.3, 0.9, cframe * CFrame.new(0, 4.95, 0), color)
 	return finish(model, parent, cframe, nil)
 end
 
@@ -3044,9 +3300,9 @@ function PropBuilder.stanchions(parent: Instance, from: CFrame, count: number, s
 	local gold = Color3.fromRGB(255, 200, 60)
 	for index = 0, count - 1 do
 		local base = from * CFrame.new(0, 0, index * spacing)
-		Build.cylinder(model, "Foot", 0.2, 1, base * CFrame.new(0, 0.1, 0), gold)
-		Build.cylinder(model, "Post", 2.6, 0.25, base * CFrame.new(0, 1.3, 0), gold)
-		local top = Build.ball(model, "Top", 0.45, base * CFrame.new(0, 2.7, 0), gold)
+		LowPoly.hexPrism(model, "Foot", 0.2, 1.05, base * CFrame.new(0, 0.1, 0), gold)
+		LowPoly.hexPrism(model, "Post", 2.6, 0.3, base * CFrame.new(0, 1.3, 0), gold)
+		local top = LowPoly.diamond(model, "Top", 0.5, base * CFrame.new(0, 2.72, 0), gold)
 		top.Reflectance = 0.3
 		if index < count - 1 then
 			Build.part(model, "Rope", Vector3.new(0.18, 0.18, spacing), base * CFrame.new(0, 2.3, spacing / 2), Color3.fromRGB(200, 30, 50))
@@ -3059,7 +3315,7 @@ return PropBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="33">
+        <Item class="ModuleScript" referent="34">
           <Properties>
             <string name="Name">StoreBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -3072,6 +3328,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Build = require(Shared.Build)
+local LowPoly = require(Shared.LowPoly)
 local Config = require(Shared.Config)
 local StoreLevels = require(Shared.StoreLevels)
 
@@ -3307,14 +3564,14 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	for index = 0, count do
 		local x = -signWidth / 2 - 0.2 + index * (signWidth + 0.4) / count
 		for _, y in { -2.45, 2.45 } do
-			local bulb = Build.ball(bulbs, "Bulb", 0.34, signCFrame * CFrame.new(x, y, -0.02), bulbColors[index % 2 + 1], Enum.Material.Neon)
+			local bulb = LowPoly.diamond(bulbs, "Bulb", 0.4, signCFrame * CFrame.new(x, y, -0.02), bulbColors[index % 2 + 1], Enum.Material.Neon)
 			Build.decor(bulb)
 			bulb.CastShadow = false
 		end
 	end
 	for _, x in { -signWidth / 2 - 0.2, signWidth / 2 + 0.2 } do
 		for y = -1.2, 1.21, 1.2 do
-			local bulb = Build.ball(bulbs, "Bulb", 0.34, signCFrame * CFrame.new(x, y, -0.02), bulbColors[1], Enum.Material.Neon)
+			local bulb = LowPoly.diamond(bulbs, "Bulb", 0.4, signCFrame * CFrame.new(x, y, -0.02), bulbColors[1], Enum.Material.Neon)
 			Build.decor(bulb)
 			bulb.CastShadow = false
 		end
@@ -3329,7 +3586,7 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 		for _, x in { -1.4, 0, 1.4 } do
 			local spike = Build.part(crown, "Spike", Vector3.new(0.8, 0.8, 0.5), crownBase * CFrame.new(x, 0.75, 0) * CFrame.Angles(0, 0, math.rad(45)), GOLD)
 			spike.Reflectance = 0.3
-			Build.ball(crown, "Gem", 0.45, crownBase * CFrame.new(x, 1.35, 0), Color3.fromRGB(255, 60, 90), Enum.Material.Neon)
+			LowPoly.diamond(crown, "Gem", 0.55, crownBase * CFrame.new(x, 1.35, 0), Color3.fromRGB(255, 60, 90), Enum.Material.Neon)
 		end
 		for _, part in crown:GetDescendants() do
 			if part:IsA("BasePart") then
@@ -3369,10 +3626,10 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	Build.decor(Build.part(model, "DoorMat", Vector3.new(doorW - 1, 0.05, 3), at(0, floorY + 0.025, frontZ + 1.6), darken(accent, 0.2)))
 	for _, side in { -1, 1 } do
 		local plantCFrame = at(side * (doorW / 2 + 1.6), floorY, frontZ + 1.3)
-		local pot = Build.cylinder(model, "Pot", 1.4, 1.5, plantCFrame * CFrame.new(0, 0.7, 0), Color3.fromRGB(215, 120, 80))
-		local leaves = Build.ball(model, "Plant", 2.4, plantCFrame * CFrame.new(0, 2.2, 0), Color3.fromRGB(80, 190, 90))
-		Build.decor(pot)
-		Build.decor(leaves)
+		local pot = LowPoly.hexPrism(model, "Pot", 1.4, 1.6, plantCFrame * CFrame.new(0, 0.7, 0), Color3.fromRGB(215, 120, 80))
+		local leaves = LowPoly.gem(model, "Plant", Vector3.new(2.4, 2.2, 2.4), plantCFrame * CFrame.new(0, 2.4, 0), Color3.fromRGB(80, 190, 90), 7 + side, true)
+		LowPoly.each(pot, Build.decor)
+		LowPoly.each(leaves, Build.decor)
 	end
 	local openSign = Build.part(model, "OpenSign", Vector3.new(3, 1.2, 0.1), at(halfW / 2 + 2, 6, frontZ + 0.1), Color3.fromRGB(255, 60, 80), Enum.Material.Neon)
 	Build.decor(openSign)
@@ -3460,7 +3717,7 @@ return StoreBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="34">
+        <Item class="ModuleScript" referent="35">
           <Properties>
             <string name="Name">TruckBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -3472,6 +3729,7 @@ return StoreBuilder
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Build = require(ReplicatedStorage.Shared.Build)
+local LowPoly = require(ReplicatedStorage.Shared.LowPoly)
 local ModelLibrary = require(ReplicatedStorage.Shared.ModelLibrary)
 
 local TruckBuilder = {}
@@ -3519,8 +3777,9 @@ local function buildParts(model: Model, root: BasePart, accent: Color3)
 	Build.part(model, "Bumper", Vector3.new(6.1, 0.7, 0.6), at(0, 0.7, -7.6), Color3.fromRGB(190, 190, 198))
 	Build.part(model, "Plate", Vector3.new(1.6, 0.5, 0.05), at(0, 0.7, -7.93), Color3.fromRGB(255, 220, 60))
 	Build.part(model, "RearBumper", Vector3.new(6.1, 0.6, 0.5), at(0, 0.6, 7.35), Color3.fromRGB(190, 190, 198))
-	local beacon = Build.part(model, "Beacon", Vector3.new(1.4, 0.45, 0.6), at(0, 6.3, -4.4), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
-	beacon.CastShadow = false
+	LowPoly.each(LowPoly.hexPrism(model, "Beacon", 0.45, 0.8, at(0, 6.3, -4.4), Color3.fromRGB(255, 170, 40), Enum.Material.Neon), function(part)
+		part.CastShadow = false
+	end)
 
 	for _, side in { -1, 1 } do
 		local light = Build.part(model, "Headlight", Vector3.new(1, 0.6, 0.2), at(side * 2.1, 2.5, -7.4), Color3.fromRGB(255, 245, 200), Enum.Material.Neon)
@@ -3536,9 +3795,9 @@ local function buildParts(model: Model, root: BasePart, accent: Color3)
 	-- Wheels: cylinders lying along X.
 	for _, z in { -4.8, 4.5 } do
 		for _, side in { -1, 1 } do
-			Build.sideCylinder(model, "Wheel", 1, 2.6, at(side * 2.8, -0.8, z), Color3.fromRGB(30, 30, 34))
-			Build.sideCylinder(model, "Hub", 1.05, 1.3, at(side * 2.8, -0.8, z), CHROME)
-			Build.sideCylinder(model, "HubCap", 1.1, 0.5, at(side * 2.8, -0.8, z), accent)
+			LowPoly.sideHexPrism(model, "Wheel", 1, 2.7, at(side * 2.8, -0.8, z), Color3.fromRGB(30, 30, 34))
+			LowPoly.sideHexPrism(model, "Hub", 1.05, 1.35, at(side * 2.8, -0.8, z), CHROME)
+			LowPoly.sideHexPrism(model, "HubCap", 1.1, 0.55, at(side * 2.8, -0.8, z), accent)
 		end
 	end
 
@@ -3598,7 +3857,7 @@ return TruckBuilder
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="35">
+        <Item class="ModuleScript" referent="36">
           <Properties>
             <string name="Name">WorldBuilder</string>
             <string name="Source"><![CDATA[--!strict
@@ -3609,6 +3868,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Build = require(Shared.Build)
+local LowPoly = require(Shared.LowPoly)
 local Config = require(Shared.Config)
 local StoreLevels = require(Shared.StoreLevels)
 
@@ -3632,6 +3892,8 @@ local PLOT_GRASS = Color3.fromRGB(128, 212, 98)
 local ROAD = Color3.fromRGB(62, 66, 78)
 local PAVEMENT = Color3.fromRGB(214, 216, 222)
 local PAD_YELLOW = Color3.fromRGB(255, 214, 80)
+local HILLS = { Color3.fromRGB(104, 188, 82), Color3.fromRGB(92, 176, 78), Color3.fromRGB(118, 198, 90) }
+local ROCK = Color3.fromRGB(150, 154, 166)
 
 export type PlotInfo = {
 	Index: number,
@@ -3708,9 +3970,14 @@ end
 local function lamp(parent: Instance, position: Vector3)
 	local model = Instance.new("Model")
 	model.Name = "StreetLamp"
-	Build.cylinder(model, "Pole", 12, 0.5, CFrame.new(position + Vector3.new(0, 6, 0)), Color3.fromRGB(60, 64, 76))
-	local head = Build.part(model, "Head", Vector3.new(1.4, 0.6, 1.4), CFrame.new(position + Vector3.new(0, 12.2, 0)), Color3.fromRGB(255, 240, 190), Enum.Material.Neon)
-	Build.decor(head)
+	local metal = Color3.fromRGB(60, 64, 76)
+	LowPoly.hexPrism(model, "Pole", 12, 0.55, CFrame.new(position + Vector3.new(0, 6, 0)), metal)
+	LowPoly.hexPrism(model, "Base", 0.8, 1.1, CFrame.new(position + Vector3.new(0, 0.4, 0)), metal)
+	-- Six-sided lantern with a pointed cap.
+	local lantern = LowPoly.hexPrism(model, "Head", 0.8, 1.5, CFrame.new(position + Vector3.new(0, 12.4, 0)), Color3.fromRGB(255, 240, 190), Enum.Material.Neon)
+	local cap = LowPoly.pyramid(model, "Cap", 6, 1.9, 0.7, CFrame.new(position + Vector3.new(0, 12.8, 0)), metal)
+	LowPoly.each(lantern, Build.decor)
+	LowPoly.each(cap, Build.decor)
 	model.Parent = parent
 end
 
@@ -3754,7 +4021,7 @@ local function buildPlot(parent: Instance, index: number, plotCFrame: CFrame): P
 	-- Standing sign on the far side of the bay, facing the shop and the path.
 	local baySignCFrame = at(padCenter.X + padSize.X / 2 + 1.5, 0, padCenter.Z) * CFrame.Angles(0, math.rad(90), 0)
 	for _, dx in { -4.5, 4.5 } do
-		Build.cylinder(model, "BaySignPost", 6.5, 0.5, baySignCFrame * CFrame.new(dx, 3.25, 0), frameColor)
+		LowPoly.hexPrism(model, "BaySignPost", 6.5, 0.55, baySignCFrame * CFrame.new(dx, 3.25, 0), frameColor)
 	end
 	local baySign = Build.part(model, "BaySign", Vector3.new(11, 3, 0.4), baySignCFrame * CFrame.new(0, 5.2, 0), PAD_YELLOW)
 	local _, bayLabel = Build.surfaceText(baySign, Enum.NormalId.Front, "📦 DELIVERIES", frameColor)
@@ -3767,8 +4034,8 @@ local function buildPlot(parent: Instance, index: number, plotCFrame: CFrame): P
 	local vacant = Instance.new("Model")
 	vacant.Name = "VacantSign"
 	local signCFrame = at(0, 0, -20)
-	Build.cylinder(vacant, "PostL", 6, 0.5, signCFrame * CFrame.new(-4, 3, 0), Color3.fromRGB(120, 85, 60))
-	Build.cylinder(vacant, "PostR", 6, 0.5, signCFrame * CFrame.new(4, 3, 0), Color3.fromRGB(120, 85, 60))
+	LowPoly.hexPrism(vacant, "PostL", 6, 0.55, signCFrame * CFrame.new(-4, 3, 0), Color3.fromRGB(120, 85, 60))
+	LowPoly.hexPrism(vacant, "PostR", 6, 0.55, signCFrame * CFrame.new(4, 3, 0), Color3.fromRGB(120, 85, 60))
 	local board = Build.part(vacant, "Board", Vector3.new(10, 3.4, 0.4), signCFrame * CFrame.new(0, 5.5, 0), Color3.fromRGB(255, 255, 255))
 	Build.surfaceText(board, Enum.NormalId.Front, "🏪 FREE PLOT", accent)
 	vacant.Parent = model
@@ -3842,6 +4109,31 @@ function WorldBuilder.build(): { PlotInfo }
 		end
 	end
 
+	-- Low-poly scenery: rolling hills behind the plots and rocks between them.
+	-- Purely visual (walk-through).
+	local scenery = Instance.new("Folder")
+	scenery.Name = "Scenery"
+	local rng = Random.new(77)
+	local hillBand = zOffset + Config.PlotDepth / 2 + 30
+	for index = 0, 4 do
+		local x = (index - 2) * (length - 120) / 4
+		for _, side in { -1, 1 } do
+			local size = Vector3.new(rng:NextNumber(44, 60), rng:NextNumber(16, 24), rng:NextNumber(26, 34))
+			local color = HILLS[rng:NextInteger(1, #HILLS)]
+			local hill = LowPoly.gem(scenery, "Hill", size, CFrame.new(x + rng:NextNumber(-12, 12), 0, side * (hillBand + rng:NextNumber(-4, 4))), color, rng:NextInteger(1, 1e6))
+			LowPoly.each(hill, Build.decor)
+		end
+	end
+	for column = 0, perSide do
+		local x = (column - perSide / 2) * Config.PlotSpacing
+		for _, side in { -1, 1 } do
+			local size = Vector3.new(rng:NextNumber(2.4, 3.6), rng:NextNumber(1.6, 2.4), rng:NextNumber(2.2, 3.2))
+			local rock = LowPoly.gem(scenery, "Rock", size, CFrame.new(x + 3.5, size.Y * 0.3, side * (zOffset - 12)), ROCK, rng:NextInteger(1, 1e6), true)
+			LowPoly.each(rock, Build.decor)
+		end
+	end
+	scenery.Parent = world
+
 	-- Fallback spawn in the middle of the road (players are moved to their plot).
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "Spawn"
@@ -3872,7 +4164,7 @@ return WorldBuilder
           </Properties>
         </Item>
       </Item>
-      <Item class="Script" referent="36">
+      <Item class="Script" referent="37">
         <Properties>
           <string name="Name">Main</string>
           <token name="RunContext">0</token>
@@ -4012,11 +4304,11 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="Folder" referent="37">
+      <Item class="Folder" referent="38">
         <Properties>
           <string name="Name">Services</string>
         </Properties>
-        <Item class="ModuleScript" referent="38">
+        <Item class="ModuleScript" referent="39">
           <Properties>
             <string name="Name">Boxes</string>
             <string name="Source"><![CDATA[--!strict
@@ -4484,7 +4776,7 @@ return Boxes
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="39">
+        <Item class="ModuleScript" referent="40">
           <Properties>
             <string name="Name">Customers</string>
             <string name="Source"><![CDATA[--!strict
@@ -4780,7 +5072,7 @@ return Customers
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="40">
+        <Item class="ModuleScript" referent="41">
           <Properties>
             <string name="Name">Deliveries</string>
             <string name="Source"><![CDATA[--!strict
@@ -4895,7 +5187,7 @@ return Deliveries
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="41">
+        <Item class="ModuleScript" referent="42">
           <Properties>
             <string name="Name">Events</string>
             <string name="Source"><![CDATA[--!strict
@@ -4923,7 +5215,7 @@ return Events
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="42">
+        <Item class="ModuleScript" referent="43">
           <Properties>
             <string name="Name">Leaderboards</string>
             <string name="Source"><![CDATA[--!strict
@@ -5164,7 +5456,7 @@ return Leaderboards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="43">
+        <Item class="ModuleScript" referent="44">
           <Properties>
             <string name="Name">MonetizationService</string>
             <string name="Source"><![CDATA[--!strict
@@ -5379,7 +5671,7 @@ return MonetizationService
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="44">
+        <Item class="ModuleScript" referent="45">
           <Properties>
             <string name="Name">Net</string>
             <string name="Source"><![CDATA[--!strict
@@ -5424,7 +5716,7 @@ return Net
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="45">
+        <Item class="ModuleScript" referent="46">
           <Properties>
             <string name="Name">NpcMotion</string>
             <string name="Source"><![CDATA[--!strict
@@ -5537,7 +5829,7 @@ return NpcMotion
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="46">
+        <Item class="ModuleScript" referent="47">
           <Properties>
             <string name="Name">Perks</string>
             <string name="Source"><![CDATA[--!strict
@@ -5633,7 +5925,7 @@ return Perks
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="47">
+        <Item class="ModuleScript" referent="48">
           <Properties>
             <string name="Name">PlayerData</string>
             <string name="Source"><![CDATA[--!strict
@@ -6157,7 +6449,7 @@ return PlayerData
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="48">
+        <Item class="ModuleScript" referent="49">
           <Properties>
             <string name="Name">Registry</string>
             <string name="Source"><![CDATA[--!strict
@@ -6247,7 +6539,7 @@ return Registry
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="49">
+        <Item class="ModuleScript" referent="50">
           <Properties>
             <string name="Name">Shelves</string>
             <string name="Source"><![CDATA[--!strict
@@ -6685,7 +6977,7 @@ return Shelves
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="50">
+        <Item class="ModuleScript" referent="51">
           <Properties>
             <string name="Name">Stores</string>
             <string name="Source"><![CDATA[--!strict
@@ -6879,7 +7171,7 @@ return Stores
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="51">
+        <Item class="ModuleScript" referent="52">
           <Properties>
             <string name="Name">TutorialService</string>
             <string name="Source"><![CDATA[--!strict
@@ -6950,7 +7242,7 @@ return TutorialService
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="52">
+        <Item class="ModuleScript" referent="53">
           <Properties>
             <string name="Name">UpgradeService</string>
             <string name="Source"><![CDATA[--!strict
@@ -7067,7 +7359,7 @@ return UpgradeService
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="53">
+        <Item class="ModuleScript" referent="54">
           <Properties>
             <string name="Name">Workers</string>
             <string name="Source"><![CDATA[--!strict
@@ -7209,38 +7501,38 @@ return Workers
       </Item>
     </Item>
   </Item>
-  <Item class="SoundService" referent="54">
+  <Item class="SoundService" referent="55">
     <Properties>
       <string name="Name">SoundService</string>
       <bool name="RespectFilteringEnabled">true</bool>
     </Properties>
   </Item>
-  <Item class="StarterGui" referent="55">
+  <Item class="StarterGui" referent="56">
     <Properties>
       <string name="Name">StarterGui</string>
       <bool name="ResetPlayerGuiOnSpawn">false</bool>
     </Properties>
   </Item>
-  <Item class="StarterPlayer" referent="56">
+  <Item class="StarterPlayer" referent="57">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <float name="CameraMaxZoomDistance">90</float>
       <float name="CameraMinZoomDistance">6</float>
       <float name="CharacterWalkSpeed">20</float>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="57">
+    <Item class="StarterPlayerScripts" referent="58">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="Folder" referent="58">
+      <Item class="Folder" referent="59">
         <Properties>
           <string name="Name">Client</string>
         </Properties>
-        <Item class="Folder" referent="59">
+        <Item class="Folder" referent="60">
           <Properties>
             <string name="Name">Controllers</string>
           </Properties>
-          <Item class="ModuleScript" referent="60">
+          <Item class="ModuleScript" referent="61">
             <Properties>
               <string name="Name">Effects</string>
               <string name="Source"><![CDATA[--!strict
@@ -7524,10 +7816,10 @@ handlers.BoxOpen = boxOpen
 -- Chunky gold coins that pop out of the till.
 local function coinBurst(position: Vector3, count: number)
 	for _ = 1, count do
+		-- A flat gold diamond: a low-poly coin in one part.
 		local coin = Instance.new("Part")
 		coin.Name = "Coin"
-		coin.Shape = Enum.PartType.Cylinder
-		coin.Size = Vector3.new(0.18, 0.8, 0.8)
+		coin.Size = Vector3.new(0.18, 0.62, 0.62)
 		coin.Color = Colors.Gold
 		coin.Material = Enum.Material.Metal
 		coin.Reflectance = 0.2
@@ -7544,7 +7836,8 @@ local function coinBurst(position: Vector3, count: number)
 			animate(0.8, function(alpha)
 				local t = alpha * 0.8
 				local offset = velocity * t + Vector3.new(0, -26 * t * t, 0)
-				coin.CFrame = CFrame.new(position + offset) * CFrame.Angles(0, t * spin, math.rad(90))
+				-- Square face turned 45° (a diamond), flipping like a tossed coin.
+				coin.CFrame = CFrame.new(position + offset) * CFrame.Angles(0, t * spin, 0) * CFrame.Angles(math.rad(45), 0, 0)
 				coin.Transparency = math.max(0, alpha - 0.6) * 2.5
 			end)
 			coin:Destroy()
@@ -7684,10 +7977,17 @@ local function updateRainbows()
 	local t = os.clock()
 	for _, model in CollectionService:GetTagged(ProductVisuals.RainbowTag) do
 		if model:IsA("Model") and model:IsDescendantOf(workspace) and near(model:GetPivot().Position, 100) then
-			local index = 0
+			-- Pieces of one low-poly prism share a name, so colour by name.
+			local count = 0
+			local byName: { [string]: number } = {}
 			for _, part in model:GetDescendants() do
 				if part:IsA("BasePart") and part.Transparency < 1 then
-					index += 1
+					local index = byName[part.Name]
+					if not index then
+						count += 1
+						index = count
+						byName[part.Name] = index
+					end
 					part.Color = Color3.fromHSV((t * 0.45 + index * 0.17) % 1, 0.75, 1)
 				end
 			end
@@ -7732,7 +8032,7 @@ return Effects
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="61">
+          <Item class="ModuleScript" referent="62">
             <Properties>
               <string name="Name">Guide</string>
               <string name="Source"><![CDATA[--!strict
@@ -8018,7 +8318,7 @@ return Guide
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="62">
+          <Item class="ModuleScript" referent="63">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[--!strict
@@ -8487,7 +8787,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="63">
+          <Item class="ModuleScript" referent="64">
             <Properties>
               <string name="Name">LeaderboardPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -8637,7 +8937,7 @@ return LeaderboardPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="64">
+          <Item class="ModuleScript" referent="65">
             <Properties>
               <string name="Name">Notifications</string>
               <string name="Source"><![CDATA[--!strict
@@ -8843,7 +9143,7 @@ return Notifications
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="65">
+          <Item class="ModuleScript" referent="66">
             <Properties>
               <string name="Name">Prompts</string>
               <string name="Source"><![CDATA[--!strict
@@ -8975,7 +9275,7 @@ return Prompts
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="66">
+          <Item class="ModuleScript" referent="67">
             <Properties>
               <string name="Name">ShopPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -9279,7 +9579,7 @@ return ShopPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="67">
+          <Item class="ModuleScript" referent="68">
             <Properties>
               <string name="Name">SoundPlayer</string>
               <string name="Source"><![CDATA[--!strict
@@ -9387,7 +9687,7 @@ return SoundPlayer
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="68">
+          <Item class="ModuleScript" referent="69">
             <Properties>
               <string name="Name">State</string>
               <string name="Source"><![CDATA[--!strict
@@ -9486,7 +9786,7 @@ return State
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="69">
+          <Item class="ModuleScript" referent="70">
             <Properties>
               <string name="Name">StockPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -9725,7 +10025,7 @@ return StockPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="70">
+          <Item class="ModuleScript" referent="71">
             <Properties>
               <string name="Name">StoreQuery</string>
               <string name="Source"><![CDATA[--!strict
@@ -9818,7 +10118,7 @@ return StoreQuery
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="71">
+          <Item class="ModuleScript" referent="72">
             <Properties>
               <string name="Name">TutorialUI</string>
               <string name="Source"><![CDATA[--!strict
@@ -10101,7 +10401,7 @@ return TutorialUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="72">
+          <Item class="ModuleScript" referent="73">
             <Properties>
               <string name="Name">UIKit</string>
               <string name="Source"><![CDATA[--!strict
@@ -10592,7 +10892,7 @@ return UIKit
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="73">
+          <Item class="ModuleScript" referent="74">
             <Properties>
               <string name="Name">UpgradesPanel</string>
               <string name="Source"><![CDATA[--!strict
@@ -10875,7 +11175,7 @@ return UpgradesPanel
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="74">
+          <Item class="ModuleScript" referent="75">
             <Properties>
               <string name="Name">Window</string>
               <string name="Source"><![CDATA[--!strict
@@ -11112,7 +11412,7 @@ return Window
             </Properties>
           </Item>
         </Item>
-        <Item class="LocalScript" referent="75">
+        <Item class="LocalScript" referent="76">
           <Properties>
             <string name="Name">Main</string>
             <string name="Source"><![CDATA[--!strict
@@ -11195,7 +11495,7 @@ end)
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="76">
+  <Item class="Workspace" referent="77">
     <Properties>
       <string name="Name">Workspace</string>
       <float name="Gravity">196.2</float>

@@ -1,7 +1,7 @@
 --!strict
 -- Builds the little 3D product models seen on shelves, in customers' baskets
--- and popping out of opened boxes. Built from Parts (plus a few sphere
--- meshes for rounded shapes); a mesh model put in
+-- and popping out of opened boxes. Built from Parts in a low-poly style (round
+-- things are six-sided prisms, see LowPoly); a mesh model put in
 -- ReplicatedStorage.CustomModels.Products replaces the Part version (see ModelLibrary).
 --
 -- Models are built around the origin with their base at Y = 0 and their
@@ -11,6 +11,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local Build = require(script.Parent.Build)
 local Items = require(script.Parent.Items)
+local LowPoly = require(script.Parent.LowPoly)
 local ModelLibrary = require(script.Parent.ModelLibrary)
 local Products = require(script.Parent.Products)
 local Variants = require(script.Parent.Variants)
@@ -22,35 +23,34 @@ ProductVisuals.RainbowTag = "RainbowItem"
 local SILVER = Color3.fromRGB(205, 208, 215)
 local DARK = Color3.fromRGB(30, 30, 36)
 
--- kind: nil = block, "cylinder" = upright cylinder (size is height, diameter, diameter),
--- "round" = ellipsoid filling the size (a block with a sphere mesh).
-type Adder = (name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?) -> Part
+-- kind: nil = block, "hex" = upright six-sided prism (size is height, width, width).
+-- `props` are applied to every part made (e.g. Transparency, Material).
+type Adder = (name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?, props: { [string]: any }?) -> ()
 
 local shapes: { [string]: (add: Adder, product: Products.Product) -> () } = {}
 
+local GLASSY = { Transparency = 0.15 }
+local GLOW = { Material = Enum.Material.Neon }
+
 shapes.Bottle = function(add, p)
-	local body = add("Body", Vector3.new(0.85, 0.5, 0.5), CFrame.new(0, 0.425, 0), p.Color, "cylinder")
-	body.Transparency = 0.15
-	local shoulder = add("Shoulder", Vector3.new(0.5, 0.5, 0.5), CFrame.new(0, 0.85, 0), p.Color, "round")
-	shoulder.Transparency = 0.15
-	add("Label", Vector3.new(0.3, 0.52, 0.52), CFrame.new(0, 0.42, 0), p.Accent, "cylinder")
-	add("Neck", Vector3.new(0.18, 0.24, 0.24), CFrame.new(0, 1.12, 0), p.Color, "cylinder")
-	add("Cap", Vector3.new(0.12, 0.29, 0.29), CFrame.new(0, 1.25, 0), p.Accent, "cylinder")
+	add("Body", Vector3.new(0.72, 0.5, 0.5), CFrame.new(0, 0.36, 0), p.Color, "hex", GLASSY)
+	add("Label", Vector3.new(0.3, 0.54, 0.54), CFrame.new(0, 0.38, 0), p.Accent, "hex")
+	add("Shoulder", Vector3.new(0.24, 0.36, 0.36), CFrame.new(0, 0.84, 0), p.Color, "hex", GLASSY)
+	add("Neck", Vector3.new(0.16, 0.2, 0.16), CFrame.new(0, 1.03, 0), p.Color, nil, GLASSY)
+	add("Cap", Vector3.new(0.22, 0.14, 0.22), CFrame.new(0, 1.17, 0) * CFrame.Angles(0, math.rad(45), 0), p.Accent)
 end
 
 shapes.Can = function(add, p)
-	add("Body", Vector3.new(0.8, 0.5, 0.5), CFrame.new(0, 0.44, 0), p.Color, "cylinder")
-	add("Band", Vector3.new(0.25, 0.52, 0.52), CFrame.new(0, 0.45, 0), p.Accent, "cylinder")
-	add("Bottom", Vector3.new(0.05, 0.44, 0.44), CFrame.new(0, 0.025, 0), SILVER, "cylinder")
-	add("Top", Vector3.new(0.06, 0.44, 0.44), CFrame.new(0, 0.87, 0), SILVER, "cylinder")
-	add("Tab", Vector3.new(0.14, 0.03, 0.09), CFrame.new(0, 0.91, -0.08), SILVER)
+	add("Body", Vector3.new(0.8, 0.5, 0.5), CFrame.new(0, 0.4, 0), p.Color, "hex")
+	add("Band", Vector3.new(0.25, 0.53, 0.53), CFrame.new(0, 0.44, 0), p.Accent, "hex")
+	add("Top", Vector3.new(0.06, 0.44, 0.44), CFrame.new(0, 0.82, 0), SILVER, "hex")
 end
 
 shapes.Bag = function(add, p)
-	-- A puffy crisp packet: flat edges with a pillowy middle and crimped ends.
+	-- A puffy crisp packet: a faceted pillow with crimped ends.
 	add("Body", Vector3.new(0.7, 0.84, 0.16), CFrame.new(0, 0.48, 0), p.Color)
-	add("Puff", Vector3.new(0.68, 0.78, 0.38), CFrame.new(0, 0.48, 0), p.Color, "round")
-	add("Band", Vector3.new(0.5, 0.26, 0.05), CFrame.new(0, 0.46, -0.17), p.Accent, "round")
+	add("Puff", Vector3.new(0.66, 0.3, 0.3), CFrame.new(0, 0.48, 0) * CFrame.Angles(math.rad(45), 0, 0), p.Color)
+	add("Band", Vector3.new(0.5, 0.26, 0.05), CFrame.new(0, 0.46, -0.22), p.Accent)
 	add("CrimpTop", Vector3.new(0.74, 0.08, 0.12), CFrame.new(0, 0.93, 0), p.Accent)
 	add("CrimpBottom", Vector3.new(0.74, 0.08, 0.12), CFrame.new(0, 0.04, 0), p.Accent)
 end
@@ -70,21 +70,20 @@ end
 
 shapes.Roll = function(add, p)
 	for index, offset in { Vector2.new(-0.18, 0.2), Vector2.new(0.18, 0.2), Vector2.new(-0.18, 0.6), Vector2.new(0.18, 0.6) } do
-		add("Roll" .. index, Vector3.new(0.4, 0.34, 0.34), CFrame.new(offset.X, offset.Y, 0), p.Color, "cylinder")
+		add("Roll" .. index, Vector3.new(0.4, 0.36, 0.36), CFrame.new(offset.X, offset.Y, 0), p.Color, "hex")
 	end
-	local wrap = add("Wrap", Vector3.new(0.74, 0.12, 0.37), CFrame.new(0, 0.42, 0), p.Accent)
-	wrap.Transparency = 0.2
+	add("Wrap", Vector3.new(0.74, 0.12, 0.37), CFrame.new(0, 0.42, 0), p.Accent, nil, { Transparency = 0.2 })
 end
 
 shapes.Pizza = function(add, p)
 	add("Box1", Vector3.new(0.85, 0.16, 0.85), CFrame.new(0, 0.08, 0), p.Color)
 	add("Box2", Vector3.new(0.85, 0.16, 0.85), CFrame.new(0, 0.25, 0) * CFrame.Angles(0, math.rad(6), 0), p.Color)
-	add("Logo", Vector3.new(0.02, 0.55, 0.55), CFrame.new(0, 0.34, 0), p.Accent, "cylinder")
+	add("Logo", Vector3.new(0.02, 0.55, 0.55), CFrame.new(0, 0.34, 0) * CFrame.Angles(0, math.rad(6), 0), p.Accent, "hex")
 end
 
 shapes.Spray = function(add, p)
-	add("Body", Vector3.new(0.75, 0.42, 0.42), CFrame.new(0, 0.375, 0), p.Color, "cylinder")
-	add("Label", Vector3.new(0.25, 0.44, 0.44), CFrame.new(0, 0.35, 0), p.Accent, "cylinder")
+	add("Body", Vector3.new(0.75, 0.42, 0.42), CFrame.new(0, 0.375, 0), p.Color, "hex")
+	add("Label", Vector3.new(0.25, 0.45, 0.45), CFrame.new(0, 0.35, 0), p.Accent, "hex")
 	add("Head", Vector3.new(0.22, 0.2, 0.34), CFrame.new(0, 0.85, -0.05), p.Accent)
 	add("Nozzle", Vector3.new(0.08, 0.08, 0.12), CFrame.new(0, 0.87, -0.26), DARK)
 end
@@ -100,14 +99,12 @@ end
 shapes.Phone = function(add, p)
 	add("Stand", Vector3.new(0.34, 0.08, 0.3), CFrame.new(0, 0.04, 0), SILVER)
 	add("Body", Vector3.new(0.42, 0.8, 0.1), CFrame.new(0, 0.48, 0.02), p.Color)
-	local screen = add("Screen", Vector3.new(0.36, 0.68, 0.02), CFrame.new(0, 0.48, -0.04), p.Accent)
-	screen.Material = Enum.Material.Neon
+	add("Screen", Vector3.new(0.36, 0.68, 0.02), CFrame.new(0, 0.48, -0.04), p.Accent, nil, GLOW)
 end
 
 shapes.Console = function(add, p)
 	add("Body", Vector3.new(0.9, 0.28, 0.6), CFrame.new(0, 0.14, 0), p.Color)
-	local stripe = add("Stripe", Vector3.new(0.91, 0.04, 0.61), CFrame.new(0, 0.2, 0), p.Accent)
-	stripe.Material = Enum.Material.Neon
+	add("Stripe", Vector3.new(0.91, 0.04, 0.61), CFrame.new(0, 0.2, 0), p.Accent, nil, GLOW)
 	add("Pad", Vector3.new(0.36, 0.1, 0.22), CFrame.new(0.15, 0.33, -0.1), DARK)
 end
 
@@ -115,16 +112,14 @@ shapes.Laptop = function(add, p)
 	add("Base", Vector3.new(0.85, 0.06, 0.6), CFrame.new(0, 0.03, 0), p.Color)
 	local hinge = CFrame.new(0, 0.06, 0.28) * CFrame.Angles(math.rad(15), 0, 0)
 	add("Lid", Vector3.new(0.85, 0.55, 0.05), hinge * CFrame.new(0, 0.275, 0), p.Color)
-	local screen = add("Screen", Vector3.new(0.75, 0.45, 0.01), hinge * CFrame.new(0, 0.275, -0.03), p.Accent)
-	screen.Material = Enum.Material.Neon
+	add("Screen", Vector3.new(0.75, 0.45, 0.01), hinge * CFrame.new(0, 0.275, -0.03), p.Accent, nil, GLOW)
 end
 
 shapes.TV = function(add, p)
 	add("Foot", Vector3.new(0.4, 0.04, 0.25), CFrame.new(0, 0.02, 0), SILVER)
 	add("Neck", Vector3.new(0.1, 0.18, 0.08), CFrame.new(0, 0.12, 0), SILVER)
 	add("Frame", Vector3.new(1, 0.62, 0.08), CFrame.new(0, 0.52, 0), p.Color)
-	local screen = add("Screen", Vector3.new(0.9, 0.52, 0.02), CFrame.new(0, 0.52, -0.05), p.Accent)
-	screen.Material = Enum.Material.Neon
+	add("Screen", Vector3.new(0.9, 0.52, 0.02), CFrame.new(0, 0.52, -0.05), p.Accent, nil, GLOW)
 end
 
 local function addSparkles(part: BasePart, color: Color3, rate: number)
@@ -183,25 +178,29 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 	model:SetAttribute("ItemKey", key)
 
 	local parts: { BasePart } = {}
-	local function add(name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?): Part
+	local function add(name: string, size: Vector3, cframe: CFrame, color: Color3, kind: string?, props: { [string]: any }?)
 		local scaledCFrame = CFrame.new(cframe.Position * scale) * cframe.Rotation
-		local part
-		if kind == "cylinder" then
-			-- Sizes for cylinders are given as (height, diameter, diameter) standing upright.
-			part = Build.cylinder(nil, name, size.X * scale, size.Y * scale, scaledCFrame, color)
-		elseif kind == "round" then
-			part = Build.ellipsoid(nil, name, size * scale, scaledCFrame, color)
+		local made: { BasePart }
+		if kind == "hex" then
+			-- Sizes for hex prisms are given as (height, width, width) standing upright.
+			made = LowPoly.hexPrism(nil, name, size.X * scale, size.Y * scale, scaledCFrame, color)
 		else
-			part = Build.part(nil, name, size * scale, scaledCFrame, color)
+			made = { Build.part(nil, name, size * scale, scaledCFrame, color) }
 		end
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-		part.Massless = true
-		part.Parent = model
-		table.insert(parts, part)
-		return part
+		for _, part in made do
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.CastShadow = false
+			part.Massless = true
+			if props then
+				for key, value in props do
+					(part :: any)[key] = value
+				end
+			end
+			part.Parent = model
+			table.insert(parts, part)
+		end
 	end
 
 	local builder = shapes[product.Shape] or shapes.Cereal
@@ -233,17 +232,29 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 		return model
 	end
 
+	-- Pieces of one prism share a name, so colour by name to keep them matching.
+	local nameIndex: { [string]: number } = {}
+	local nextIndex = 0
+	local function pieceIndex(part: BasePart): number
+		local index = nameIndex[part.Name]
+		if not index then
+			nextIndex += 1
+			index = nextIndex
+			nameIndex[part.Name] = index
+		end
+		return index
+	end
 	if variant.Id == "Golden" then
-		for index, part in parts do
-			part.Color = if index % 2 == 0 then Color3.fromRGB(255, 225, 110) else Variants.GoldColor
+		for _, part in parts do
+			part.Color = if pieceIndex(part) % 2 == 0 then Color3.fromRGB(255, 225, 110) else Variants.GoldColor
 			part.Material = Enum.Material.SmoothPlastic
 			part.Reflectance = 0.25
 			part.Transparency = 0
 		end
 		addSparkles(parts[1], Color3.fromRGB(255, 230, 120), 3)
 	elseif variant.Id == "Rainbow" then
-		for index, part in parts do
-			part.Color = Color3.fromHSV((index * 0.17) % 1, 0.75, 1)
+		for _, part in parts do
+			part.Color = Color3.fromHSV((pieceIndex(part) * 0.17) % 1, 0.75, 1)
 			part.Material = Enum.Material.Neon
 			part.Transparency = 0
 		end

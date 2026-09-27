@@ -67,6 +67,19 @@ Customers, workers and the cashier are standard Roblox R15 characters. Roblox bu
 - If Roblox can't create characters (for example, character assets fail to load), the game prints one warning and uses simple Part-built characters instead.
 - The looks are in `NpcBuilder.luau`. You could add clothing or accessory IDs to `describe()` for more variety.
 
+### Low-poly style
+
+Everything is built from ordinary Parts in a low-poly style, so nothing needs uploading. `src/shared/LowPoly.luau` provides the shapes:
+
+- **Hexagonal prisms** (3 overlapping blocks) instead of cylinders: trunks, poles, cans, bottles, bins and wheels.
+- **Triangle facets** (2 thin WedgeParts per triangle) that build faceted solids:
+  - lumpy icosahedron tree crowns and rolling hills;
+  - octahedron bushes and rocks;
+  - six-sided pine tree tiers and a striped eight-sided parasol.
+- **Bevelled blocks** for hedges, and blocks turned on a corner for small round things like flowers, bulbs, apples and coins.
+
+Roblox shades each facet separately, which gives the flat-shaded low-poly look. The NPCs are the exception: they're standard Roblox characters.
+
 ### Drop-in meshes (optional)
 
 The world is built from Parts and needs no uploads. To use real meshes instead, put models into **`ReplicatedStorage.CustomModels`**. You can get them from the Creator Store/Toolbox, or import your own from Blender with **File → Import 3D**.
@@ -98,7 +111,7 @@ How custom models are used:
 | Workers | Staff NPCs in green (the cashier wears the same look) restock the emptiest shelf from your stock room |
 | Leaderboards | Three double-sided boards stand on the street's central reservation: **TOP STORES** (store value), **TOP EARNERS** and **MOST SOLD**, with avatars. The same boards are in the 🏆 **TOP** menu, and Value, Cash and Sold also show in the player list |
 | Robux shop | Cash packs that scale with progress, a 15-minute Customer Rush (3× customers), an Instant Delivery, and a Golden Crate (all Golden + a Rainbow). Passes: 2x Cash, Lucky Charm (2× rare chance), Big Deliveries, and VIP Shop (golden shop with a crown, red carpet, VIP tag and a free extra worker) |
-| World | Every plot has a car park with parked cars, planters, a bench and bin, a trolley corral, pallets of stock, a forklift, a picnic table, flower beds, hedges and a fence. Shops have marquee lights around the sign, a gumball machine and an ice-cream freezer |
+| World | Low-poly throughout. Every plot has a car park with parked cars, planters, a bench and bin, a trolley corral, pallets of stock, a forklift, a picnic table with a parasol, flower beds, hedges and a fence. There are faceted trees and pines between the plots, and rolling hills and rocks around the edges. Shops have marquee lights around the sign, a gumball machine and an ice-cream freezer |
 | Other players | Can walk into your shop but can't use your prompts, boxes, shelves or upgrades. The server checks ownership on everything |
 | Saving | Cash, upgrades, store level, stock room, what's on each shelf, stats, tutorial progress, boost timers and processed receipts |
 
@@ -116,6 +129,7 @@ src/shared/   → ReplicatedStorage.Shared      data + helpers used by both side
   Tutorial        the tutorial steps and rewards
   Items           "Cola:Golden"-style item keys, prices, names
   ProductVisuals  each product's 3D model (Parts, or a custom mesh)
+  LowPoly         low-poly shapes from Parts (hex prisms, wedge triangles, gems)
   ModelLibrary    drop-in meshes from ReplicatedStorage.CustomModels
   BoxVisual, Build, Format, Remotes, Signal, Sounds
 src/server/   → ServerScriptService.Server

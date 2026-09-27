@@ -7,6 +7,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Build = require(ReplicatedStorage.Shared.Build)
+local LowPoly = require(ReplicatedStorage.Shared.LowPoly)
 local ModelLibrary = require(ReplicatedStorage.Shared.ModelLibrary)
 
 local TruckBuilder = {}
@@ -54,8 +55,9 @@ local function buildParts(model: Model, root: BasePart, accent: Color3)
 	Build.part(model, "Bumper", Vector3.new(6.1, 0.7, 0.6), at(0, 0.7, -7.6), Color3.fromRGB(190, 190, 198))
 	Build.part(model, "Plate", Vector3.new(1.6, 0.5, 0.05), at(0, 0.7, -7.93), Color3.fromRGB(255, 220, 60))
 	Build.part(model, "RearBumper", Vector3.new(6.1, 0.6, 0.5), at(0, 0.6, 7.35), Color3.fromRGB(190, 190, 198))
-	local beacon = Build.part(model, "Beacon", Vector3.new(1.4, 0.45, 0.6), at(0, 6.3, -4.4), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
-	beacon.CastShadow = false
+	LowPoly.each(LowPoly.hexPrism(model, "Beacon", 0.45, 0.8, at(0, 6.3, -4.4), Color3.fromRGB(255, 170, 40), Enum.Material.Neon), function(part)
+		part.CastShadow = false
+	end)
 
 	for _, side in { -1, 1 } do
 		local light = Build.part(model, "Headlight", Vector3.new(1, 0.6, 0.2), at(side * 2.1, 2.5, -7.4), Color3.fromRGB(255, 245, 200), Enum.Material.Neon)
@@ -71,9 +73,9 @@ local function buildParts(model: Model, root: BasePart, accent: Color3)
 	-- Wheels: cylinders lying along X.
 	for _, z in { -4.8, 4.5 } do
 		for _, side in { -1, 1 } do
-			Build.sideCylinder(model, "Wheel", 1, 2.6, at(side * 2.8, -0.8, z), Color3.fromRGB(30, 30, 34))
-			Build.sideCylinder(model, "Hub", 1.05, 1.3, at(side * 2.8, -0.8, z), CHROME)
-			Build.sideCylinder(model, "HubCap", 1.1, 0.5, at(side * 2.8, -0.8, z), accent)
+			LowPoly.sideHexPrism(model, "Wheel", 1, 2.7, at(side * 2.8, -0.8, z), Color3.fromRGB(30, 30, 34))
+			LowPoly.sideHexPrism(model, "Hub", 1.05, 1.35, at(side * 2.8, -0.8, z), CHROME)
+			LowPoly.sideHexPrism(model, "HubCap", 1.1, 0.55, at(side * 2.8, -0.8, z), accent)
 		end
 	end
 

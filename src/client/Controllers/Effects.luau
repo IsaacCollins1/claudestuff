@@ -279,10 +279,10 @@ handlers.BoxOpen = boxOpen
 -- Chunky gold coins that pop out of the till.
 local function coinBurst(position: Vector3, count: number)
 	for _ = 1, count do
+		-- A flat gold diamond: a low-poly coin in one part.
 		local coin = Instance.new("Part")
 		coin.Name = "Coin"
-		coin.Shape = Enum.PartType.Cylinder
-		coin.Size = Vector3.new(0.18, 0.8, 0.8)
+		coin.Size = Vector3.new(0.18, 0.62, 0.62)
 		coin.Color = Colors.Gold
 		coin.Material = Enum.Material.Metal
 		coin.Reflectance = 0.2
@@ -299,7 +299,8 @@ local function coinBurst(position: Vector3, count: number)
 			animate(0.8, function(alpha)
 				local t = alpha * 0.8
 				local offset = velocity * t + Vector3.new(0, -26 * t * t, 0)
-				coin.CFrame = CFrame.new(position + offset) * CFrame.Angles(0, t * spin, math.rad(90))
+				-- Square face turned 45° (a diamond), flipping like a tossed coin.
+				coin.CFrame = CFrame.new(position + offset) * CFrame.Angles(0, t * spin, 0) * CFrame.Angles(math.rad(45), 0, 0)
 				coin.Transparency = math.max(0, alpha - 0.6) * 2.5
 			end)
 			coin:Destroy()
@@ -439,10 +440,17 @@ local function updateRainbows()
 	local t = os.clock()
 	for _, model in CollectionService:GetTagged(ProductVisuals.RainbowTag) do
 		if model:IsA("Model") and model:IsDescendantOf(workspace) and near(model:GetPivot().Position, 100) then
-			local index = 0
+			-- Pieces of one low-poly prism share a name, so colour by name.
+			local count = 0
+			local byName: { [string]: number } = {}
 			for _, part in model:GetDescendants() do
 				if part:IsA("BasePart") and part.Transparency < 1 then
-					index += 1
+					local index = byName[part.Name]
+					if not index then
+						count += 1
+						index = count
+						byName[part.Name] = index
+					end
 					part.Color = Color3.fromHSV((t * 0.45 + index * 0.17) % 1, 0.75, 1)
 				end
 			end

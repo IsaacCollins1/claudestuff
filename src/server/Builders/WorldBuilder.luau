@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Build = require(Shared.Build)
+local LowPoly = require(Shared.LowPoly)
 local Config = require(Shared.Config)
 local StoreLevels = require(Shared.StoreLevels)
 
@@ -29,6 +30,8 @@ local PLOT_GRASS = Color3.fromRGB(128, 212, 98)
 local ROAD = Color3.fromRGB(62, 66, 78)
 local PAVEMENT = Color3.fromRGB(214, 216, 222)
 local PAD_YELLOW = Color3.fromRGB(255, 214, 80)
+local HILLS = { Color3.fromRGB(104, 188, 82), Color3.fromRGB(92, 176, 78), Color3.fromRGB(118, 198, 90) }
+local ROCK = Color3.fromRGB(150, 154, 166)
 
 export type PlotInfo = {
 	Index: number,
@@ -105,9 +108,14 @@ end
 local function lamp(parent: Instance, position: Vector3)
 	local model = Instance.new("Model")
 	model.Name = "StreetLamp"
-	Build.cylinder(model, "Pole", 12, 0.5, CFrame.new(position + Vector3.new(0, 6, 0)), Color3.fromRGB(60, 64, 76))
-	local head = Build.part(model, "Head", Vector3.new(1.4, 0.6, 1.4), CFrame.new(position + Vector3.new(0, 12.2, 0)), Color3.fromRGB(255, 240, 190), Enum.Material.Neon)
-	Build.decor(head)
+	local metal = Color3.fromRGB(60, 64, 76)
+	LowPoly.hexPrism(model, "Pole", 12, 0.55, CFrame.new(position + Vector3.new(0, 6, 0)), metal)
+	LowPoly.hexPrism(model, "Base", 0.8, 1.1, CFrame.new(position + Vector3.new(0, 0.4, 0)), metal)
+	-- Six-sided lantern with a pointed cap.
+	local lantern = LowPoly.hexPrism(model, "Head", 0.8, 1.5, CFrame.new(position + Vector3.new(0, 12.4, 0)), Color3.fromRGB(255, 240, 190), Enum.Material.Neon)
+	local cap = LowPoly.pyramid(model, "Cap", 6, 1.9, 0.7, CFrame.new(position + Vector3.new(0, 12.8, 0)), metal)
+	LowPoly.each(lantern, Build.decor)
+	LowPoly.each(cap, Build.decor)
 	model.Parent = parent
 end
 
@@ -151,7 +159,7 @@ local function buildPlot(parent: Instance, index: number, plotCFrame: CFrame): P
 	-- Standing sign on the far side of the bay, facing the shop and the path.
 	local baySignCFrame = at(padCenter.X + padSize.X / 2 + 1.5, 0, padCenter.Z) * CFrame.Angles(0, math.rad(90), 0)
 	for _, dx in { -4.5, 4.5 } do
-		Build.cylinder(model, "BaySignPost", 6.5, 0.5, baySignCFrame * CFrame.new(dx, 3.25, 0), frameColor)
+		LowPoly.hexPrism(model, "BaySignPost", 6.5, 0.55, baySignCFrame * CFrame.new(dx, 3.25, 0), frameColor)
 	end
 	local baySign = Build.part(model, "BaySign", Vector3.new(11, 3, 0.4), baySignCFrame * CFrame.new(0, 5.2, 0), PAD_YELLOW)
 	local _, bayLabel = Build.surfaceText(baySign, Enum.NormalId.Front, "📦 DELIVERIES", frameColor)
@@ -164,8 +172,8 @@ local function buildPlot(parent: Instance, index: number, plotCFrame: CFrame): P
 	local vacant = Instance.new("Model")
 	vacant.Name = "VacantSign"
 	local signCFrame = at(0, 0, -20)
-	Build.cylinder(vacant, "PostL", 6, 0.5, signCFrame * CFrame.new(-4, 3, 0), Color3.fromRGB(120, 85, 60))
-	Build.cylinder(vacant, "PostR", 6, 0.5, signCFrame * CFrame.new(4, 3, 0), Color3.fromRGB(120, 85, 60))
+	LowPoly.hexPrism(vacant, "PostL", 6, 0.55, signCFrame * CFrame.new(-4, 3, 0), Color3.fromRGB(120, 85, 60))
+	LowPoly.hexPrism(vacant, "PostR", 6, 0.55, signCFrame * CFrame.new(4, 3, 0), Color3.fromRGB(120, 85, 60))
 	local board = Build.part(vacant, "Board", Vector3.new(10, 3.4, 0.4), signCFrame * CFrame.new(0, 5.5, 0), Color3.fromRGB(255, 255, 255))
 	Build.surfaceText(board, Enum.NormalId.Front, "🏪 FREE PLOT", accent)
 	vacant.Parent = model
@@ -238,6 +246,31 @@ function WorldBuilder.build(): { PlotInfo }
 			end
 		end
 	end
+
+	-- Low-poly scenery: rolling hills behind the plots and rocks between them.
+	-- Purely visual (walk-through).
+	local scenery = Instance.new("Folder")
+	scenery.Name = "Scenery"
+	local rng = Random.new(77)
+	local hillBand = zOffset + Config.PlotDepth / 2 + 30
+	for index = 0, 4 do
+		local x = (index - 2) * (length - 120) / 4
+		for _, side in { -1, 1 } do
+			local size = Vector3.new(rng:NextNumber(44, 60), rng:NextNumber(16, 24), rng:NextNumber(26, 34))
+			local color = HILLS[rng:NextInteger(1, #HILLS)]
+			local hill = LowPoly.gem(scenery, "Hill", size, CFrame.new(x + rng:NextNumber(-12, 12), 0, side * (hillBand + rng:NextNumber(-4, 4))), color, rng:NextInteger(1, 1e6))
+			LowPoly.each(hill, Build.decor)
+		end
+	end
+	for column = 0, perSide do
+		local x = (column - perSide / 2) * Config.PlotSpacing
+		for _, side in { -1, 1 } do
+			local size = Vector3.new(rng:NextNumber(2.4, 3.6), rng:NextNumber(1.6, 2.4), rng:NextNumber(2.2, 3.2))
+			local rock = LowPoly.gem(scenery, "Rock", size, CFrame.new(x + 3.5, size.Y * 0.3, side * (zOffset - 12)), ROCK, rng:NextInteger(1, 1e6), true)
+			LowPoly.each(rock, Build.decor)
+		end
+	end
+	scenery.Parent = world
 
 	-- Fallback spawn in the middle of the road (players are moved to their plot).
 	local spawn = Instance.new("SpawnLocation")

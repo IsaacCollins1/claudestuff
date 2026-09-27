@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Build = require(Shared.Build)
+local LowPoly = require(Shared.LowPoly)
 local Config = require(Shared.Config)
 local StoreLevels = require(Shared.StoreLevels)
 
@@ -243,14 +244,14 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	for index = 0, count do
 		local x = -signWidth / 2 - 0.2 + index * (signWidth + 0.4) / count
 		for _, y in { -2.45, 2.45 } do
-			local bulb = Build.ball(bulbs, "Bulb", 0.34, signCFrame * CFrame.new(x, y, -0.02), bulbColors[index % 2 + 1], Enum.Material.Neon)
+			local bulb = LowPoly.diamond(bulbs, "Bulb", 0.4, signCFrame * CFrame.new(x, y, -0.02), bulbColors[index % 2 + 1], Enum.Material.Neon)
 			Build.decor(bulb)
 			bulb.CastShadow = false
 		end
 	end
 	for _, x in { -signWidth / 2 - 0.2, signWidth / 2 + 0.2 } do
 		for y = -1.2, 1.21, 1.2 do
-			local bulb = Build.ball(bulbs, "Bulb", 0.34, signCFrame * CFrame.new(x, y, -0.02), bulbColors[1], Enum.Material.Neon)
+			local bulb = LowPoly.diamond(bulbs, "Bulb", 0.4, signCFrame * CFrame.new(x, y, -0.02), bulbColors[1], Enum.Material.Neon)
 			Build.decor(bulb)
 			bulb.CastShadow = false
 		end
@@ -265,7 +266,7 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 		for _, x in { -1.4, 0, 1.4 } do
 			local spike = Build.part(crown, "Spike", Vector3.new(0.8, 0.8, 0.5), crownBase * CFrame.new(x, 0.75, 0) * CFrame.Angles(0, 0, math.rad(45)), GOLD)
 			spike.Reflectance = 0.3
-			Build.ball(crown, "Gem", 0.45, crownBase * CFrame.new(x, 1.35, 0), Color3.fromRGB(255, 60, 90), Enum.Material.Neon)
+			LowPoly.diamond(crown, "Gem", 0.55, crownBase * CFrame.new(x, 1.35, 0), Color3.fromRGB(255, 60, 90), Enum.Material.Neon)
 		end
 		for _, part in crown:GetDescendants() do
 			if part:IsA("BasePart") then
@@ -305,10 +306,10 @@ function StoreBuilder.build(plotCFrame: CFrame, level: number, accent: Color3, o
 	Build.decor(Build.part(model, "DoorMat", Vector3.new(doorW - 1, 0.05, 3), at(0, floorY + 0.025, frontZ + 1.6), darken(accent, 0.2)))
 	for _, side in { -1, 1 } do
 		local plantCFrame = at(side * (doorW / 2 + 1.6), floorY, frontZ + 1.3)
-		local pot = Build.cylinder(model, "Pot", 1.4, 1.5, plantCFrame * CFrame.new(0, 0.7, 0), Color3.fromRGB(215, 120, 80))
-		local leaves = Build.ball(model, "Plant", 2.4, plantCFrame * CFrame.new(0, 2.2, 0), Color3.fromRGB(80, 190, 90))
-		Build.decor(pot)
-		Build.decor(leaves)
+		local pot = LowPoly.hexPrism(model, "Pot", 1.4, 1.6, plantCFrame * CFrame.new(0, 0.7, 0), Color3.fromRGB(215, 120, 80))
+		local leaves = LowPoly.gem(model, "Plant", Vector3.new(2.4, 2.2, 2.4), plantCFrame * CFrame.new(0, 2.4, 0), Color3.fromRGB(80, 190, 90), 7 + side, true)
+		LowPoly.each(pot, Build.decor)
+		LowPoly.each(leaves, Build.decor)
 	end
 	local openSign = Build.part(model, "OpenSign", Vector3.new(3, 1.2, 0.1), at(halfW / 2 + 2, 6, frontZ + 0.1), Color3.fromRGB(255, 60, 80), Enum.Material.Neon)
 	Build.decor(openSign)

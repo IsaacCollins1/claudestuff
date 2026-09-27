@@ -1,6 +1,8 @@
 --!strict
 -- Decorative props built from Parts: benches, planters, bins, shopping carts,
 -- parked cars, pallets, a forklift, picnic tables, fences, hedges and trees.
+-- Everything is low-poly: round things are six-sided prisms or faceted
+-- gems made of wedge triangles (see Shared/LowPoly).
 --
 -- Every prop is built around `cframe`: its base sits on the ground and its
 -- front faces -Z. The detail parts are walk-through; props you'd expect to
@@ -12,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage.Shared
 local Build = require(Shared.Build)
+local LowPoly = require(Shared.LowPoly)
 local ModelLibrary = require(Shared.ModelLibrary)
 
 local PropBuilder = {}
@@ -28,6 +31,11 @@ local LEAVES = {
 	Color3.fromRGB(76, 180, 80),
 	Color3.fromRGB(96, 198, 92),
 	Color3.fromRGB(62, 160, 74),
+}
+local PINES = {
+	Color3.fromRGB(46, 140, 80),
+	Color3.fromRGB(56, 156, 88),
+	Color3.fromRGB(70, 172, 96),
 }
 local FLOWERS = {
 	Color3.fromRGB(255, 95, 120),
@@ -89,10 +97,10 @@ end
 
 function PropBuilder.bin(parent: Instance, cframe: CFrame, color: Color3): Model
 	local model = newModel("Bin")
-	Build.cylinder(model, "Body", 2.6, 1.8, cframe * CFrame.new(0, 1.3, 0), color)
-	Build.cylinder(model, "Band", 0.3, 1.86, cframe * CFrame.new(0, 2.1, 0), Build.White)
-	Build.cylinder(model, "Lid", 0.3, 2.05, cframe * CFrame.new(0, 2.75, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
-	Build.ball(model, "Knob", 0.5, cframe * CFrame.new(0, 2.95, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
+	LowPoly.hexPrism(model, "Body", 2.6, 1.9, cframe * CFrame.new(0, 1.3, 0), color)
+	LowPoly.hexPrism(model, "Band", 0.3, 1.98, cframe * CFrame.new(0, 2.1, 0), Build.White)
+	LowPoly.hexPrism(model, "Lid", 0.3, 2.15, cframe * CFrame.new(0, 2.75, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
+	LowPoly.diamond(model, "Knob", 0.5, cframe * CFrame.new(0, 3, 0), color:Lerp(Color3.new(0, 0, 0), 0.25))
 	return finish(model, parent, cframe, Vector3.new(1.9, 3, 1.9))
 end
 
@@ -106,10 +114,10 @@ function PropBuilder.planter(parent: Instance, cframe: CFrame, length: number, s
 	local count = math.max(1, math.floor(length / 2))
 	for index = 1, count do
 		local x = -length / 2 + (index - 0.5) * (length / count)
-		Build.ellipsoid(model, "Bush", Vector3.new(2.2, 1.5, 1.9), cframe * CFrame.new(x, 2.1, 0), LEAVES[rng:NextInteger(1, #LEAVES)])
+		LowPoly.gem(model, "Bush", Vector3.new(2.3, 1.7, 2), cframe * CFrame.new(x, 2.2, 0), LEAVES[rng:NextInteger(1, #LEAVES)], rng:NextInteger(1, 1e6), true)
 		for _ = 1, 2 do
-			local flower = cframe * CFrame.new(x + rng:NextNumber(-0.7, 0.7), 2.75, rng:NextNumber(-0.5, 0.5))
-			Build.ball(model, "Flower", 0.55, flower, FLOWERS[rng:NextInteger(1, #FLOWERS)])
+			local flower = cframe * CFrame.new(x + rng:NextNumber(-0.7, 0.7), 2.85, rng:NextNumber(-0.5, 0.5))
+			LowPoly.diamond(model, "Flower", 0.6, flower, FLOWERS[rng:NextInteger(1, #FLOWERS)])
 		end
 	end
 	return finish(model, parent, cframe, nil)
@@ -125,21 +133,23 @@ function PropBuilder.flowerBed(parent: Instance, cframe: CFrame, size: Vector2, 
 		for z = -size.Y / 2 + 1, size.Y / 2 - 0.9, 1.5 do
 			local base = cframe * CFrame.new(x + rng:NextNumber(-0.3, 0.3), 0, z + rng:NextNumber(-0.3, 0.3))
 			Build.part(model, "Stem", Vector3.new(0.15, 1, 0.15), base * CFrame.new(0, 0.9, 0), LEAVES[3])
-			Build.ball(model, "Flower", 0.75, base * CFrame.new(0, 1.5, 0), FLOWERS[rng:NextInteger(1, #FLOWERS)])
+			LowPoly.diamond(model, "Flower", 0.8, base * CFrame.new(0, 1.5, 0), FLOWERS[rng:NextInteger(1, #FLOWERS)])
 		end
 	end
 	return finish(model, parent, cframe, nil)
 end
 
--- A row of round bushes (runs along X).
+-- A chunky low-poly hedge (runs along X): bevelled blocks of slightly different heights.
 function PropBuilder.hedge(parent: Instance, cframe: CFrame, length: number, seed: number): Model
 	local model = newModel("Hedge")
 	local rng = Random.new(seed)
 	local count = math.max(1, math.floor(length / 3))
+	local step = length / count
 	for index = 1, count do
-		local x = -length / 2 + (index - 0.5) * (length / count)
-		local height = rng:NextNumber(2.4, 3.2)
-		Build.ellipsoid(model, "Bush", Vector3.new(3.6, height, 2.8), cframe * CFrame.new(x, height / 2, 0), LEAVES[rng:NextInteger(1, #LEAVES)])
+		local x = -length / 2 + (index - 0.5) * step
+		local height = rng:NextNumber(2.3, 3.1)
+		local depth = rng:NextNumber(2.5, 2.9)
+		LowPoly.bevelBox(model, "Bush", Vector3.new(step + 0.1, height, depth), cframe * CFrame.new(x, height / 2, 0), LEAVES[rng:NextInteger(1, #LEAVES)], 0.7)
 	end
 	return finish(model, parent, cframe, nil)
 end
@@ -159,27 +169,32 @@ function PropBuilder.fence(parent: Instance, cframe: CFrame, length: number): Mo
 	return finish(model, parent, cframe, nil)
 end
 
+-- Low-poly tree: a lumpy faceted crown on a six-sided trunk, or (every third
+-- seed) a pine made of three stacked six-sided cones.
 function PropBuilder.tree(parent: Instance, cframe: CFrame, scale: number, seed: number): Model
 	return swappable("Tree", Vector3.new(14, 16, 14) * scale, parent, cframe, function()
 		local model = newModel("Tree")
 		local rng = Random.new(seed)
-		Build.cylinder(model, "Trunk", 7 * scale, 1.5 * scale, cframe * CFrame.new(0, 3.5 * scale, 0), Color3.fromRGB(130, 88, 55))
-		Build.part(model, "Branch", Vector3.new(0.6, 3, 0.6) * scale, cframe * CFrame.new(1 * scale, 7 * scale, 0) * CFrame.Angles(0, 0, math.rad(-35)), Color3.fromRGB(130, 88, 55))
-		local clusters = {
-			{ Vector3.new(0, 9, 0), Vector3.new(8.5, 7, 8.5) },
-			{ Vector3.new(2.4, 11.2, 0.8), Vector3.new(5.5, 5, 5.5) },
-			{ Vector3.new(-2.2, 10.6, -1), Vector3.new(5, 4.6, 5) },
-			{ Vector3.new(0.4, 12.6, -0.6), Vector3.new(4.2, 3.6, 4.2) },
-		}
-		for index, cluster in clusters do
-			local color = LEAVES[(index + rng:NextInteger(0, 2)) % #LEAVES + 1]
-			Build.ellipsoid(model, "Leaves", cluster[2] * scale, cframe * CFrame.new(cluster[1] * scale), color)
-		end
-		-- A few apples for fun.
-		for _ = 1, 3 do
-			local angle = rng:NextNumber(0, math.pi * 2)
-			local offset = Vector3.new(math.cos(angle) * 4, rng:NextNumber(7.5, 10), math.sin(angle) * 4)
-			Build.ball(model, "Apple", 0.7 * scale, cframe * CFrame.new(offset * scale), Color3.fromRGB(235, 60, 60))
+		local bark = Color3.fromRGB(130, 88, 55)
+		if seed % 3 == 0 then
+			LowPoly.hexPrism(model, "Trunk", 6 * scale, 1.3 * scale, cframe * CFrame.new(0, 3 * scale, 0), bark)
+			for tier = 1, 3 do
+				local width = (9.6 - tier * 2.2) * scale
+				local baseY = (3 + tier * 2.7) * scale
+				local turn = CFrame.Angles(0, tier * 0.55 + rng:NextNumber(0, 0.3), 0)
+				LowPoly.pyramid(model, "Needles", 6, width, 4.8 * scale, cframe * CFrame.new(0, baseY, 0) * turn, PINES[tier])
+			end
+		else
+			LowPoly.hexPrism(model, "Trunk", 7 * scale, 1.5 * scale, cframe * CFrame.new(0, 3.5 * scale, 0), bark)
+			LowPoly.hexPrism(model, "Branch", 3 * scale, 0.6 * scale, cframe * CFrame.new(1 * scale, 7 * scale, 0) * CFrame.Angles(0, 0, math.rad(-35)), bark)
+			local leaves = LEAVES[rng:NextInteger(1, #LEAVES)]
+			LowPoly.gem(model, "Leaves", Vector3.new(9, 7.6, 9) * scale, cframe * CFrame.new(0, 9.8 * scale, 0), leaves, seed)
+			-- A few apples for fun.
+			for _ = 1, 3 do
+				local angle = rng:NextNumber(0, math.pi * 2)
+				local offset = Vector3.new(math.cos(angle) * 3.9, rng:NextNumber(7.8, 10), math.sin(angle) * 3.9)
+				LowPoly.diamond(model, "Apple", 0.8 * scale, cframe * CFrame.new(offset * scale), Color3.fromRGB(235, 60, 60))
+			end
 		end
 		return finish(model, parent, cframe, Vector3.new(1.6, 7, 1.6) * scale)
 	end)
@@ -200,7 +215,7 @@ function PropBuilder.cart(parent: Instance, cframe: CFrame, color: Color3): Mode
 		Build.part(model, "Upright", Vector3.new(0.14, 1.2, 0.14), at(x * 0.85, 1, 1.35), CHROME)
 		Build.part(model, "HandlePost", Vector3.new(0.12, 0.7, 0.12), at(x, 3.1, 1.75), CHROME)
 		for _, z in { -1.2, 1.2 } do
-			Build.sideCylinder(model, "Wheel", 0.25, 0.55, at(x * 0.8, 0.28, z), TYRE)
+			Build.part(model, "Wheel", Vector3.new(0.25, 0.5, 0.5), at(x * 0.8, 0.28, z) * CFrame.Angles(math.rad(45), 0, 0), TYRE)
 		end
 	end
 	for _, z in { -1.5, 1.5 } do
@@ -217,7 +232,7 @@ function PropBuilder.cartCorral(parent: Instance, cframe: CFrame, accent: Color3
 	local model = newModel("CartCorral")
 	for _, x in { -1.6, 1.6 } do
 		for _, z in { -3.4, 3.4 } do
-			Build.cylinder(model, "Post", 2.4, 0.3, cframe * CFrame.new(x, 1.2, z), METAL)
+			LowPoly.hexPrism(model, "Post", 2.4, 0.34, cframe * CFrame.new(x, 1.2, z), METAL)
 		end
 		Build.part(model, "Rail", Vector3.new(0.25, 0.25, 7), cframe * CFrame.new(x, 2.3, 0), accent)
 	end
@@ -256,8 +271,8 @@ function PropBuilder.car(parent: Instance, cframe: CFrame, color: Color3): Model
 			Build.part(model, "Mirror", Vector3.new(0.5, 0.35, 0.3), at(x * 2.6, 2.6, -1.6), trim)
 			Build.part(model, "Handle", Vector3.new(0.08, 0.15, 0.5), at(x * 2.53, 2.05, 0.2), CHROME)
 			for _, z in { -3.2, 3.2 } do
-				Build.sideCylinder(model, "Tyre", 0.8, 2, at(x * 2.3, 1, z), TYRE)
-				Build.sideCylinder(model, "Hubcap", 0.86, 0.9, at(x * 2.3, 1, z), CHROME)
+				LowPoly.sideHexPrism(model, "Tyre", 0.8, 2.1, at(x * 2.3, 1, z), TYRE)
+				LowPoly.sideHexPrism(model, "Hubcap", 0.86, 0.9, at(x * 2.3, 1, z), CHROME)
 			end
 		end
 		return finish(model, parent, cframe, Vector3.new(5.2, 4.2, 10.4))
@@ -274,7 +289,7 @@ function PropBuilder.parking(parent: Instance, cframe: CFrame, bays: number, bay
 	end
 	Build.part(model, "Kerb", Vector3.new(bays * bayWidth + 2, 0.3, 0.6), cframe * CFrame.new(0, 0.15, length / 2 + 0.7), Color3.fromRGB(235, 235, 240))
 	local signX = -bays * bayWidth / 2 - 1.8
-	Build.cylinder(model, "SignPost", 5, 0.3, cframe * CFrame.new(signX, 2.5, length / 2), METAL)
+	LowPoly.hexPrism(model, "SignPost", 5, 0.34, cframe * CFrame.new(signX, 2.5, length / 2), METAL)
 	local sign = Build.part(model, "Sign", Vector3.new(1.8, 1.8, 0.2), cframe * CFrame.new(signX, 5.3, length / 2 - 0.2), Color3.fromRGB(40, 110, 230))
 	Build.surfaceText(sign, Enum.NormalId.Front, "P", Build.White)
 	return finish(model, parent, cframe, nil)
@@ -316,14 +331,14 @@ function PropBuilder.forklift(parent: Instance, cframe: CFrame, color: Color3): 
 		Build.part(model, "Counterweight", Vector3.new(3.6, 1.8, 1.2), at(0, 1.6, 3.4), METAL)
 		Build.part(model, "Seat", Vector3.new(1.6, 0.5, 1.4), at(0, 2.65, 1.3), TYRE)
 		Build.part(model, "SeatBack", Vector3.new(1.6, 1.3, 0.3), at(0, 3.3, 2.05), TYRE)
-		Build.cylinder(model, "Steering", 0.12, 0.9, at(0, 3.2, -0.5) * CFrame.Angles(math.rad(-30), 0, 0), TYRE)
+		LowPoly.hexPrism(model, "Steering", 0.12, 0.9, at(0, 3.2, -0.5) * CFrame.Angles(math.rad(-30), 0, 0), TYRE)
 		for _, x in { -1.6, 1.6 } do
 			for _, z in { -1.3, 2.9 } do
 				Build.part(model, "GuardPost", Vector3.new(0.2, 3.2, 0.2), at(x, 4, z), METAL)
 			end
 			Build.part(model, "Mast", Vector3.new(0.3, 5.2, 0.3), at(x * 0.55, 2.9, -2), METAL)
-			Build.sideCylinder(model, "FrontWheel", 0.7, 1.6, at(x * 1.19, 0.8, -1.1), TYRE)
-			Build.sideCylinder(model, "RearWheel", 0.7, 1.3, at(x * 1.19, 0.65, 2.9), TYRE)
+			LowPoly.sideHexPrism(model, "FrontWheel", 0.7, 1.7, at(x * 1.19, 0.8, -1.1), TYRE)
+			LowPoly.sideHexPrism(model, "RearWheel", 0.7, 1.4, at(x * 1.19, 0.65, 2.9), TYRE)
 		end
 		Build.part(model, "Roof", Vector3.new(3.6, 0.2, 4.6), at(0, 5.7, 0.8), METAL)
 		Build.part(model, "Crossbar", Vector3.new(2, 0.3, 0.3), at(0, 5.4, -2), METAL)
@@ -331,7 +346,7 @@ function PropBuilder.forklift(parent: Instance, cframe: CFrame, color: Color3): 
 		for _, x in { -0.7, 0.7 } do
 			Build.part(model, "Fork", Vector3.new(0.4, 0.15, 3), at(x, 0.45, -3.8), CHROME)
 		end
-		local beacon = Build.ball(model, "Beacon", 0.6, at(0, 6, 1.6), Color3.fromRGB(255, 160, 30), Enum.Material.Neon)
+		local beacon = LowPoly.diamond(model, "Beacon", 0.7, at(0, 6, 1.6), Color3.fromRGB(255, 160, 30), Enum.Material.Neon)
 		beacon.CastShadow = false
 		return finish(model, parent, cframe, Vector3.new(3.8, 6, 5.4))
 	end)
@@ -351,13 +366,10 @@ function PropBuilder.picnicTable(parent: Instance, cframe: CFrame, parasol: Colo
 		Build.part(model, "Leg", Vector3.new(0.3, 2.5, 0.3), at(x, 1.25, 0), WOOD_DARK)
 		Build.part(model, "Brace", Vector3.new(0.3, 0.3, 5.4), at(x, 1.3, 0), WOOD_DARK)
 	end
-	Build.cylinder(model, "Pole", 5.6, 0.22, at(0, 3.3, 0), Build.White)
-	local stripes = { parasol, Build.White }
-	for ring = 1, 3 do
-		local width = 7.5 - ring * 1.8
-		Build.ellipsoid(model, "Canopy", Vector3.new(width, 1.4 - ring * 0.25, width), at(0, 5.7 + ring * 0.28, 0), stripes[ring % 2 + 1])
-	end
-	Build.ball(model, "Knob", 0.5, at(0, 6.9, 0), parasol)
+	LowPoly.hexPrism(model, "Pole", 5.6, 0.26, at(0, 3.3, 0), Build.White)
+	-- Eight-sided striped canopy.
+	LowPoly.pyramid(model, "Canopy", 8, 7.4, 1.7, at(0, 5.6, 0), parasol, { parasol, Build.White }, true)
+	LowPoly.diamond(model, "Knob", 0.5, at(0, 7.4, 0), parasol)
 	return finish(model, parent, cframe, Vector3.new(6, 2.8, 5.4))
 end
 
@@ -368,7 +380,7 @@ function PropBuilder.dumpster(parent: Instance, cframe: CFrame, color: Color3): 
 	Build.part(model, "Lid", Vector3.new(6.2, 0.3, 3.7), cframe * CFrame.new(0, 3.95, 0.1) * CFrame.Angles(math.rad(6), 0, 0), METAL)
 	for _, x in { -2.4, 2.4 } do
 		for _, z in { -1.2, 1.2 } do
-			Build.sideCylinder(model, "Wheel", 0.4, 0.8, cframe * CFrame.new(x, 0.4, z), TYRE)
+			LowPoly.sideHexPrism(model, "Wheel", 0.4, 0.85, cframe * CFrame.new(x, 0.4, z), TYRE)
 		end
 	end
 	return finish(model, parent, cframe, Vector3.new(6, 4, 3.6))
@@ -377,17 +389,18 @@ end
 -- Retro gumball machine for the shop front.
 function PropBuilder.gumballMachine(parent: Instance, cframe: CFrame, color: Color3): Model
 	local model = newModel("GumballMachine")
-	Build.cylinder(model, "Stand", 2.2, 0.5, cframe * CFrame.new(0, 1.1, 0), color)
+	LowPoly.hexPrism(model, "Stand", 2.2, 0.55, cframe * CFrame.new(0, 1.1, 0), color)
 	Build.part(model, "Base", Vector3.new(1.4, 1.1, 1.4), cframe * CFrame.new(0, 2.6, 0), color)
 	Build.part(model, "Slot", Vector3.new(0.4, 0.4, 0.1), cframe * CFrame.new(0, 2.6, -0.72), CHROME)
-	local globe = Build.ball(model, "Globe", 1.9, cframe * CFrame.new(0, 3.95, 0), GLASS, Enum.Material.Glass)
-	globe.Transparency = 0.55
+	LowPoly.each(LowPoly.gem(model, "Globe", Vector3.new(2, 2, 2), cframe * CFrame.new(0, 3.95, 0), GLASS, 11, true, Enum.Material.Glass), function(part)
+		part.Transparency = 0.55
+	end)
 	local rng = Random.new(7)
 	for _ = 1, 10 do
 		local offset = Vector3.new(rng:NextNumber(-0.45, 0.45), rng:NextNumber(-0.55, 0.1), rng:NextNumber(-0.45, 0.45))
-		Build.ball(model, "Gum", 0.42, cframe * CFrame.new(Vector3.new(0, 3.95, 0) + offset), FLOWERS[rng:NextInteger(1, #FLOWERS)])
+		LowPoly.diamond(model, "Gum", 0.45, cframe * CFrame.new(Vector3.new(0, 3.95, 0) + offset), FLOWERS[rng:NextInteger(1, #FLOWERS)])
 	end
-	Build.cylinder(model, "Cap", 0.3, 0.8, cframe * CFrame.new(0, 4.95, 0), color)
+	LowPoly.hexPrism(model, "Cap", 0.3, 0.9, cframe * CFrame.new(0, 4.95, 0), color)
 	return finish(model, parent, cframe, nil)
 end
 
@@ -411,9 +424,9 @@ function PropBuilder.stanchions(parent: Instance, from: CFrame, count: number, s
 	local gold = Color3.fromRGB(255, 200, 60)
 	for index = 0, count - 1 do
 		local base = from * CFrame.new(0, 0, index * spacing)
-		Build.cylinder(model, "Foot", 0.2, 1, base * CFrame.new(0, 0.1, 0), gold)
-		Build.cylinder(model, "Post", 2.6, 0.25, base * CFrame.new(0, 1.3, 0), gold)
-		local top = Build.ball(model, "Top", 0.45, base * CFrame.new(0, 2.7, 0), gold)
+		LowPoly.hexPrism(model, "Foot", 0.2, 1.05, base * CFrame.new(0, 0.1, 0), gold)
+		LowPoly.hexPrism(model, "Post", 2.6, 0.3, base * CFrame.new(0, 1.3, 0), gold)
+		local top = LowPoly.diamond(model, "Top", 0.5, base * CFrame.new(0, 2.72, 0), gold)
 		top.Reflectance = 0.3
 		if index < count - 1 then
 			Build.part(model, "Rope", Vector3.new(0.18, 0.18, spacing), base * CFrame.new(0, 2.3, spacing / 2), Color3.fromRGB(200, 30, 50))

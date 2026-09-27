@@ -1,6 +1,7 @@
 --!strict
 -- Small helpers for building things out of plain Parts.
 -- Used by the server (stores, trucks, NPCs) and the client (effects).
+-- Round shapes are built low-poly style in LowPoly.
 
 local Build = {}
 
@@ -25,64 +26,6 @@ function Build.part(
 	part.Material = material or Enum.Material.SmoothPlastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
-	part.Parent = parent
-	return part
-end
-
--- Upright cylinder whose height runs along the Y axis of `cframe`.
-function Build.cylinder(
-	parent: Instance?,
-	name: string,
-	height: number,
-	diameter: number,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local part =
-		Build.part(nil, name, Vector3.new(height, diameter, diameter), cframe * CFrame.Angles(0, 0, math.pi / 2), color, material)
-	part.Shape = Enum.PartType.Cylinder
-	part.Parent = parent
-	return part
-end
-
--- Cylinder lying along the X axis of `cframe` (wheels, rolls on their side...).
-function Build.sideCylinder(
-	parent: Instance?,
-	name: string,
-	length: number,
-	diameter: number,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local part = Build.part(nil, name, Vector3.new(length, diameter, diameter), cframe, color, material)
-	part.Shape = Enum.PartType.Cylinder
-	part.Parent = parent
-	return part
-end
-
-function Build.ball(
-	parent: Instance?,
-	name: string,
-	diameter: number,
-	cframe: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local part = Build.part(nil, name, Vector3.new(diameter, diameter, diameter), cframe, color, material)
-	part.Shape = Enum.PartType.Ball
-	part.Parent = parent
-	return part
-end
-
--- Stretched sphere (egg / pillow / bush shapes) that fills `size`: a block
--- with a sphere mesh, since Ball parts are always perfectly round.
-function Build.ellipsoid(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
-	local part = Build.part(nil, name, size, cframe, color, material)
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Sphere
-	mesh.Parent = part
 	part.Parent = parent
 	return part
 end
