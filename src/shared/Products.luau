@@ -118,10 +118,6 @@ for index, product in Products.List do
 	Products.Index[product.Id] = index
 end
 
-function Products.get(id: string): Product?
-	return Products.ById[id]
-end
-
 -- Products that deliveries can contain at a given store level.
 function Products.poolForLevel(storeLevel: number): { Product }
 	local pool = {}

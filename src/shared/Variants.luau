@@ -43,10 +43,6 @@ end
 
 Variants.GoldColor = Color3.fromRGB(255, 196, 37)
 
-function Variants.get(id: string): Variant?
-	return Variants.ById[id]
-end
-
 -- Roll a variant for one unit. `luck` multiplies every rare chance.
 function Variants.roll(rng: Random, luck: number): string
 	local roll = rng:NextNumber()

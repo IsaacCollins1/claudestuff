@@ -76,20 +76,6 @@ function Build.ball(
 	return part
 end
 
-function Build.wedge(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3): WedgePart
-	local wedge = Instance.new("WedgePart")
-	wedge.Name = name
-	wedge.Anchored = true
-	wedge.Size = size
-	wedge.CFrame = cframe
-	wedge.Color = color
-	wedge.Material = Enum.Material.SmoothPlastic
-	wedge.TopSurface = Enum.SurfaceType.Smooth
-	wedge.BottomSurface = Enum.SurfaceType.Smooth
-	wedge.Parent = parent
-	return wedge
-end
-
 -- Purely visual: players and NPCs walk through it, raycasts ignore it.
 function Build.decor(part: BasePart)
 	part.CanCollide = false

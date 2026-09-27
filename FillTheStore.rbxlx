@@ -19,6 +19,7 @@
         <B>0.6</B>
       </Color3>
       <float name="ShadowSoftness">0.35</float>
+      <token name="Technology">3</token>
     </Properties>
     <Item class="Atmosphere" referent="1">
       <Properties>
@@ -235,20 +236,6 @@ function Build.ball(
 	return part
 end
 
-function Build.wedge(parent: Instance?, name: string, size: Vector3, cframe: CFrame, color: Color3): WedgePart
-	local wedge = Instance.new("WedgePart")
-	wedge.Name = name
-	wedge.Anchored = true
-	wedge.Size = size
-	wedge.CFrame = cframe
-	wedge.Color = color
-	wedge.Material = Enum.Material.SmoothPlastic
-	wedge.TopSurface = Enum.SurfaceType.Smooth
-	wedge.BottomSurface = Enum.SurfaceType.Smooth
-	wedge.Parent = parent
-	return wedge
-end
-
 -- Purely visual: players and NPCs walk through it, raycasts ignore it.
 function Build.decor(part: BasePart)
 	part.CanCollide = false
@@ -333,7 +320,6 @@ return Build
 -- Most balancing can be done from this file without touching any systems.
 
 local Config = {
-	GameName = "Fill the Store! 🛒",
 	Currency = "£",
 
 	StartingCash = 25,
@@ -721,11 +707,6 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 	return model
 end
 
--- The root part of a product model (used for welding into baskets).
-function ProductVisuals.root(model: Model): BasePart?
-	return model:FindFirstChildWhichIsA("BasePart")
-end
-
 return ProductVisuals
 ]]></string>
         </Properties>
@@ -851,10 +832,6 @@ Products.Index = {} :: { [string]: number } -- display order
 for index, product in Products.List do
 	Products.ById[product.Id] = product
 	Products.Index[product.Id] = index
-end
-
-function Products.get(id: string): Product?
-	return Products.ById[id]
 end
 
 -- Products that deliveries can contain at a given store level.
@@ -1011,34 +988,42 @@ return Signal
 -- These use sounds that ship with the Roblox client (rbxasset://), so they work
 -- without any uploads. Replace `Id` with any "rbxassetid://123" from the
 -- Creator Store to change a sound.
+--
+-- `Fallback` is used automatically if `Id` fails to load on a client; the
+-- fallbacks are the default character sounds, which every client has.
 
 export type SoundDef = {
 	Id: string,
 	Volume: number,
 	Speed: number,
+	Fallback: string?,
 }
+
+local JUMP = "rbxasset://sounds/action_jump.mp3"
+local LAND = "rbxasset://sounds/action_jump_land.mp3"
+local GET_UP = "rbxasset://sounds/action_get_up.mp3"
 
 local Sounds: { [string]: SoundDef } = {
 	-- Product popping onto a shelf (pitch rises as the shelf fills)
-	Stock = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.28, Speed = 1.2 },
+	Stock = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.28, Speed = 1.2, Fallback = JUMP },
 	-- Customer paying at the till
-	Cash = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.55, Speed = 1.8 },
-	CashLow = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.4, Speed = 1.35 },
+	Cash = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.55, Speed = 1.8, Fallback = JUMP },
+	CashLow = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.4, Speed = 1.35, Fallback = JUMP },
 	-- Picking up / putting down boxes
-	Pickup = { Id = "rbxasset://sounds/snap.wav", Volume = 0.6, Speed = 1 },
-	Thud = { Id = "rbxasset://sounds/action_jump_land.mp3", Volume = 0.7, Speed = 0.8 },
+	Pickup = { Id = "rbxasset://sounds/snap.wav", Volume = 0.6, Speed = 1, Fallback = LAND },
+	Thud = { Id = LAND, Volume = 0.7, Speed = 0.8 },
 	-- Box opening
-	BoxShake = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Speed = 0.8 },
-	BoxOpen = { Id = "rbxasset://sounds/swoosh.wav", Volume = 0.6, Speed = 1.1 },
-	ItemPop = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Speed = 1.5 },
+	BoxShake = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Speed = 0.8, Fallback = LAND },
+	BoxOpen = { Id = "rbxasset://sounds/swoosh.wav", Volume = 0.6, Speed = 1.1, Fallback = JUMP },
+	ItemPop = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Speed = 1.5, Fallback = JUMP },
 	-- UI
-	Click = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Speed = 1 },
-	Error = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Speed = 0.55 },
-	Upgrade = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Speed = 0.9 },
+	Click = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Speed = 1, Fallback = LAND },
+	Error = { Id = "rbxasset://sounds/clickfast.wav", Volume = 0.5, Speed = 0.55, Fallback = GET_UP },
+	Upgrade = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.6, Speed = 0.9, Fallback = JUMP },
 	-- Big moments
-	Delivery = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Speed = 0.7 },
-	Rare = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 2.2 },
-	Sad = { Id = "rbxasset://sounds/action_get_up.mp3", Volume = 0.35, Speed = 0.7 },
+	Delivery = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.5, Speed = 0.7, Fallback = JUMP },
+	Rare = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 2.2, Fallback = JUMP },
+	Sad = { Id = GET_UP, Volume = 0.35, Speed = 0.7 },
 }
 
 return Sounds
@@ -1628,10 +1613,6 @@ for index, variant in Variants.List do
 end
 
 Variants.GoldColor = Color3.fromRGB(255, 196, 37)
-
-function Variants.get(id: string): Variant?
-	return Variants.ById[id]
-end
 
 -- Roll a variant for one unit. `luck` multiplies every rare chance.
 function Variants.roll(rng: Random, luck: number): string
@@ -4197,19 +4178,6 @@ function Registry.store(player: Player): Store?
 	return session and session.Store
 end
 
--- Plot-local helpers
-function Registry.toWorld(session: Session, localCFrame: CFrame): CFrame
-	return session.PlotCFrame * localCFrame
-end
-
-function Registry.toWorldPoint(session: Session, localPoint: Vector3): Vector3
-	return session.PlotCFrame:PointToWorldSpace(localPoint)
-end
-
-function Registry.toLocalPoint(session: Session, worldPoint: Vector3): Vector3
-	return session.PlotCFrame:PointToObjectSpace(worldPoint)
-end
-
 return Registry
 ]]></string>
           </Properties>
@@ -6284,9 +6252,10 @@ return Prompts
               <string name="Source"><![CDATA[--!strict
 -- Plays the sound effects defined in Shared/Sounds, optionally at a 3D position.
 
+local ContentProvider = game:GetService("ContentProvider")
+local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
-local Debris = game:GetService("Debris")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
 
@@ -6294,6 +6263,33 @@ local SoundPlayer = {}
 
 local templates: { [string]: Sound } = {}
 local lastPlayed: { [string]: number } = {}
+local failed: { [string]: boolean } = {}
+
+-- Preload every sound once; anything that fails switches to its fallback.
+function SoundPlayer.init()
+	task.spawn(function()
+		local ids: { string } = {}
+		for _, def in Sounds do
+			if not table.find(ids, def.Id) then
+				table.insert(ids, def.Id)
+			end
+		end
+		pcall(function()
+			ContentProvider:PreloadAsync(ids, function(contentId: string, status: Enum.AssetFetchStatus)
+				if status ~= Enum.AssetFetchStatus.Success then
+					failed[contentId] = true
+				end
+			end)
+		end)
+	end)
+end
+
+local function soundId(def: Sounds.SoundDef): string
+	if failed[def.Id] and def.Fallback then
+		return def.Fallback
+	end
+	return def.Id
+end
 
 local function template(name: string): Sound?
 	local existing = templates[name]
@@ -6306,7 +6302,7 @@ local function template(name: string): Sound?
 	end
 	local sound = Instance.new("Sound")
 	sound.Name = "SFX_" .. name
-	sound.SoundId = def.Id
+	sound.SoundId = soundId(def)
 	sound.Volume = def.Volume
 	sound.PlaybackSpeed = def.Speed
 	sound.Parent = SoundService
@@ -6324,6 +6320,10 @@ function SoundPlayer.play(name: string, pitch: number?, position: Vector3?, minG
 	local base = template(name)
 	if not base then
 		return
+	end
+	local def = Sounds[name]
+	if base.SoundId ~= soundId(def) then
+		base.SoundId = soundId(def)
 	end
 	local sound = base:Clone()
 	sound.PlaybackSpeed = base.PlaybackSpeed * (pitch or 1)
@@ -6423,11 +6423,6 @@ function State.inventoryTotal(): number
 		total += count
 	end
 	return total
-end
-
-function State.upgradeLevel(id: string, default: number): number
-	local data = State.Data
-	return if data and data.Upgrades[id] then data.Upgrades[id] else default
 end
 
 return State
@@ -7221,6 +7216,7 @@ local Guide = require(Controllers.Guide)
 local HUD = require(Controllers.HUD)
 local Notifications = require(Controllers.Notifications)
 local Prompts = require(Controllers.Prompts)
+local SoundPlayer = require(Controllers.SoundPlayer)
 local State = require(Controllers.State)
 local StockPanel = require(Controllers.StockPanel)
 local UpgradesPanel = require(Controllers.UpgradesPanel)
@@ -7256,6 +7252,7 @@ workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(watchCamera)
 
 screen.Parent = player:WaitForChild("PlayerGui")
 
+SoundPlayer.init()
 State.init()
 HUD.init(screen)
 Notifications.init(screen)
@@ -7278,6 +7275,7 @@ HUD.StockPressed:Connect(StockPanel.toggle)
       <string name="Name">Workspace</string>
       <float name="Gravity">196.2</float>
       <bool name="NeedsPivotMigration">false</bool>
+      <bool name="StreamingEnabled">false</bool>
     </Properties>
   </Item>
 </roblox>

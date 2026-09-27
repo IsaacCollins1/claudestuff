@@ -2,21 +2,18 @@
   "name": "FillTheStore",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Shared": {
         "$path": "src/shared"
       }
     },
-
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "Server": {
         "$path": "src/server"
       }
     },
-
     "StarterPlayer": {
       "$className": "StarterPlayer",
       "$properties": {
@@ -31,40 +28,46 @@
         }
       }
     },
-
     "StarterGui": {
       "$className": "StarterGui",
       "$properties": {
         "ResetPlayerGuiOnSpawn": false
       }
     },
-
     "Players": {
       "$className": "Players",
       "$properties": {
         "CharacterAutoLoads": true
       }
     },
-
     "Workspace": {
       "$className": "Workspace",
       "$properties": {
-        "Gravity": 196.2
+        "Gravity": 196.2,
+        "StreamingEnabled": false
       }
     },
-
     "Lighting": {
       "$className": "Lighting",
       "$properties": {
-        "Ambient": [0.43, 0.43, 0.47],
-        "OutdoorAmbient": [0.55, 0.55, 0.6],
+        "Ambient": [
+          0.43,
+          0.43,
+          0.47
+        ],
+        "OutdoorAmbient": [
+          0.55,
+          0.55,
+          0.6
+        ],
         "Brightness": 2.6,
         "ClockTime": 14.2,
         "GeographicLatitude": 30,
         "GlobalShadows": true,
         "EnvironmentDiffuseScale": 0.6,
         "EnvironmentSpecularScale": 0.4,
-        "ShadowSoftness": 0.35
+        "ShadowSoftness": 0.35,
+        "Technology": "ShadowMap"
       },
       "Sky": {
         "$className": "Sky",
@@ -78,8 +81,16 @@
         "$properties": {
           "Density": 0.22,
           "Offset": 0.1,
-          "Color": [0.78, 0.86, 0.95],
-          "Decay": [0.55, 0.7, 0.9],
+          "Color": [
+            0.78,
+            0.86,
+            0.95
+          ],
+          "Decay": [
+            0.55,
+            0.7,
+            0.9
+          ],
           "Glare": 0.2,
           "Haze": 0.8
         }
@@ -90,7 +101,11 @@
           "Brightness": 0.02,
           "Contrast": 0.06,
           "Saturation": 0.18,
-          "TintColor": [1, 1, 1]
+          "TintColor": [
+            1,
+            1,
+            1
+          ]
         }
       },
       "Bloom": {
@@ -102,7 +117,6 @@
         }
       }
     },
-
     "SoundService": {
       "$className": "SoundService",
       "$properties": {

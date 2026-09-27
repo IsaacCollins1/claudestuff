@@ -3,7 +3,6 @@
 -- Most balancing can be done from this file without touching any systems.
 
 local Config = {
-	GameName = "Fill the Store! 🛒",
 	Currency = "£",
 
 	StartingCash = 25,

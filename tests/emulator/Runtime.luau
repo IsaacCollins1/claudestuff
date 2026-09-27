@@ -327,6 +327,17 @@ local function registerApi()
 		return current:getDataStore(name)
 	end)
 
+	Instances.method("ContentProvider", "PreloadAsync", function(_, list, callback)
+		assert(type(list) == "table", "PreloadAsync expects an array")
+		for _, item in list do
+			local id = if type(item) == "string" then item else item.SoundId
+			assert(type(id) == "string" and string.match(id, "^rbxasset"), "unexpected content id " .. tostring(id))
+			Scheduler.wait(0.01)
+			if callback then
+				callback(id, Enum.AssetFetchStatus.Success)
+			end
+		end
+	end)
 	Instances.method("SoundService", "PlayLocalSound", function(_, sound)
 		current:recordSound(sound)
 	end)

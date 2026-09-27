@@ -80,17 +80,4 @@ function Registry.store(player: Player): Store?
 	return session and session.Store
 end
 
--- Plot-local helpers
-function Registry.toWorld(session: Session, localCFrame: CFrame): CFrame
-	return session.PlotCFrame * localCFrame
-end
-
-function Registry.toWorldPoint(session: Session, localPoint: Vector3): Vector3
-	return session.PlotCFrame:PointToWorldSpace(localPoint)
-end
-
-function Registry.toLocalPoint(session: Session, worldPoint: Vector3): Vector3
-	return session.PlotCFrame:PointToObjectSpace(worldPoint)
-end
-
 return Registry

@@ -1,9 +1,10 @@
 --!strict
 -- Plays the sound effects defined in Shared/Sounds, optionally at a 3D position.
 
+local ContentProvider = game:GetService("ContentProvider")
+local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
-local Debris = game:GetService("Debris")
 
 local Sounds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Sounds"))
 
@@ -11,6 +12,33 @@ local SoundPlayer = {}
 
 local templates: { [string]: Sound } = {}
 local lastPlayed: { [string]: number } = {}
+local failed: { [string]: boolean } = {}
+
+-- Preload every sound once; anything that fails switches to its fallback.
+function SoundPlayer.init()
+	task.spawn(function()
+		local ids: { string } = {}
+		for _, def in Sounds do
+			if not table.find(ids, def.Id) then
+				table.insert(ids, def.Id)
+			end
+		end
+		pcall(function()
+			ContentProvider:PreloadAsync(ids, function(contentId: string, status: Enum.AssetFetchStatus)
+				if status ~= Enum.AssetFetchStatus.Success then
+					failed[contentId] = true
+				end
+			end)
+		end)
+	end)
+end
+
+local function soundId(def: Sounds.SoundDef): string
+	if failed[def.Id] and def.Fallback then
+		return def.Fallback
+	end
+	return def.Id
+end
 
 local function template(name: string): Sound?
 	local existing = templates[name]
@@ -23,7 +51,7 @@ local function template(name: string): Sound?
 	end
 	local sound = Instance.new("Sound")
 	sound.Name = "SFX_" .. name
-	sound.SoundId = def.Id
+	sound.SoundId = soundId(def)
 	sound.Volume = def.Volume
 	sound.PlaybackSpeed = def.Speed
 	sound.Parent = SoundService
@@ -41,6 +69,10 @@ function SoundPlayer.play(name: string, pitch: number?, position: Vector3?, minG
 	local base = template(name)
 	if not base then
 		return
+	end
+	local def = Sounds[name]
+	if base.SoundId ~= soundId(def) then
+		base.SoundId = soundId(def)
 	end
 	local sound = base:Clone()
 	sound.PlaybackSpeed = base.PlaybackSpeed * (pitch or 1)

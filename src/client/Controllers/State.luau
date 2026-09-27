@@ -66,9 +66,4 @@ function State.inventoryTotal(): number
 	return total
 end
 
-function State.upgradeLevel(id: string, default: number): number
-	local data = State.Data
-	return if data and data.Upgrades[id] then data.Upgrades[id] else default
-end
-
 return State

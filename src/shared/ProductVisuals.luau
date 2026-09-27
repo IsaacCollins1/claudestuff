@@ -188,9 +188,4 @@ function ProductVisuals.build(key: string, extraScale: number?): Model
 	return model
 end
 
--- The root part of a product model (used for welding into baskets).
-function ProductVisuals.root(model: Model): BasePart?
-	return model:FindFirstChildWhichIsA("BasePart")
-end
-
 return ProductVisuals
