@@ -435,8 +435,21 @@ local function registerApi()
 		current:recordSound(self)
 	end)
 	Instances.method("Sound", "Stop", function() end)
-	Instances.method("ParticleEmitter", "Emit", function(_, count)
+	Instances.method("ParticleEmitter", "Emit", function(self, count)
 		assert(count == nil or type(count) == "number", "Emit expects a number")
+		-- Tally by effect name ("Sparkle|FFFFFF" -> "Sparkle") so tests can see what played.
+		local effect = string.match(self.Name, "^([^|]+)|") or self.Name
+		current.particlesEmitted[effect] = (current.particlesEmitted[effect] or 0) + (count or 16)
+		local anchor = self.Parent
+		if anchor and anchor:IsA("BasePart") then
+			table.insert(current.emitLog, {
+				Time = Scheduler.now,
+				Effect = effect,
+				Color = self.Color.Keypoints[1].Value,
+				Position = anchor.Position,
+				Count = count or 16,
+			})
+		end
 	end)
 	Instances.method("ParticleEmitter", "Clear", function() end)
 
@@ -541,6 +554,8 @@ function Runtime.new(options: Options)
 	self.purchaseCounter = 0
 	self.receiptAttempts = 3
 	self.charactersCreated = 0
+	self.particlesEmitted = {}
+	self.emitLog = {}
 	self.receiptLog = {}
 
 	local game = Instances.new("DataModel", true)

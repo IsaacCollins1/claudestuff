@@ -114,7 +114,28 @@ function TruckBuilder.build(accent: Color3): Truck
 	end
 	if not custom then
 		buildParts(model, root, accent)
+		LowPoly.sideHexPrism(model, "ExhaustPipe", 0.5, 0.35, CFrame.new(2, -0.55, 7.45) * CFrame.Angles(0, math.pi / 2, 0), DARK)
 	end
+
+	-- Little puffs from the exhaust while the van is around (a built-in client texture).
+	local exhaust = Instance.new("Attachment")
+	exhaust.Name = "Exhaust"
+	exhaust.Position = Vector3.new(2, -0.55, 7.7)
+	exhaust.Parent = root
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Name = "ExhaustSmoke"
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(Color3.fromRGB(205, 205, 212))
+	smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1.8) })
+	smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 1) })
+	smoke.Lifetime = NumberRange.new(0.6, 1)
+	smoke.Rate = 8
+	smoke.Speed = NumberRange.new(1.5, 3)
+	smoke.SpreadAngle = Vector2.new(15, 15)
+	smoke.EmissionDirection = Enum.NormalId.Back
+	smoke.Acceleration = Vector3.new(0, 2, 0)
+	smoke.Drag = 2
+	smoke.Parent = exhaust
 
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then

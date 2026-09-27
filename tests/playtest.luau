@@ -410,6 +410,36 @@ check(bought >= 4, "bought several upgrades via the UI (" .. bought .. ")")
 check(maxCustomers >= 3, "several customers in the shop at once (max " .. maxCustomers .. ")")
 check(#Instances.findFallingParts(runtime.workspace) == 0, "no unanchored parts left floating unattached")
 check(gui.Value:FindFirstChildOfClass("TextLabel").Text ~= "⭐ £0", "store value shows in the HUD")
+
+-- Particles: the key moments play effects, and they stay pooled and budgeted.
+local emitted = runtime.particlesEmitted
+local playedAll = true
+for _, effect in { "Dust", "Ring", "Glow", "Confetti", "Sparkle", "Rise" } do
+	if (emitted[effect] or 0) == 0 then
+		playedAll = false
+		print("      no " .. effect .. " particles played")
+	end
+end
+check(playedAll, "boxes landing, unpacking, stocking, sales and upgrades play particle effects")
+local effectsFolder = runtime.workspace:FindFirstChild("ClientEffects")
+local effectParts, effectEmitters = 0, 0
+for _, descendant in if effectsFolder then effectsFolder:GetDescendants() else {} do
+	if descendant:IsA("BasePart") then
+		effectParts += 1
+	elseif descendant:IsA("ParticleEmitter") then
+		effectEmitters += 1
+	end
+end
+local totalEmitted = 0
+for _, count in emitted do
+	totalEmitted += count
+end
+check(
+	effectsFolder ~= nil and effectParts <= 12 and effectEmitters <= 40,
+	string.format("particles are pooled (%d parts, %d emitters for %d particles)", effectParts, effectEmitters, totalEmitted)
+)
+local perSecond = totalEmitted / math.max(1, Scheduler.now)
+check(perSecond < 40, string.format("not too many: %.1f particles per second on average", perSecond))
 reportErrors("five minutes")
 
 section("Leaderboards")
@@ -530,6 +560,8 @@ while bot.data().Upgrades.StoreSize < 3 do
 	runtime:run(1)
 end
 check(#bot.store().Shelves == 10 and bot.store().Level == 3, "mini supermarket has 10 shelves")
+runtime:run(2)
+check((runtime.particlesEmitted.Shockwave or 0) > 0, "expanding the shop sets off fireworks")
 local itemsAfter = 0
 for _, keys in Shelves.serialize(bot.store()) do
 	itemsAfter += #keys

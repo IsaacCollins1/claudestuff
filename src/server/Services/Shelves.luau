@@ -261,6 +261,7 @@ local function onStockPrompt(player: Player, shelf: Shelf)
 			Position = (shelf.CFrame * CFrame.new(0, StoreLevels.ShelfHeight + 2, 0)).Position,
 			Count = placed,
 			Full = Shelves.free(shelf) == 0,
+			Shelf = shelf.Model,
 		})
 	end
 end

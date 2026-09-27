@@ -44,6 +44,7 @@ local Sounds: { [string]: SoundDef } = {
 	Purchase = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 1.25, Fallback = JUMP },
 	StepDone = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.7, Speed = 1.6, Fallback = JUMP },
 	Whoosh = { Id = "rbxasset://sounds/swoosh.wav", Volume = 0.4, Speed = 1.3, Fallback = JUMP },
+	Pop = { Id = "rbxasset://sounds/snap.wav", Volume = 0.7, Speed = 0.7, Fallback = LAND }, -- firework bursts
 }
 
 return Sounds

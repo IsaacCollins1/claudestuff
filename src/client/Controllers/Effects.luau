@@ -1,6 +1,7 @@
 --!strict
 -- World-space feedback: box opening animation, money popups, products
--- popping onto shelves, rainbow items, confetti, sounds.
+-- popping onto shelves, rainbow items, confetti, sounds. Particles come from
+-- the pooled, budgeted effects in Particles.
 
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
@@ -18,6 +19,7 @@ local Remotes = require(Shared:WaitForChild("Remotes"))
 
 local HUD = require(script.Parent.HUD)
 local Notifications = require(script.Parent.Notifications)
+local Particles = require(script.Parent.Particles)
 local SoundPlayer = require(script.Parent.SoundPlayer)
 local UIKit = require(script.Parent.UIKit)
 
@@ -121,31 +123,42 @@ local function floatText(position: Vector3, text: string, color: Color3, size: n
 	end)
 end
 
-local function burst(position: Vector3, colors: { Color3 }, count: number, speed: number)
-	local anchor = anchorAt(position, 3)
-	for _, color in colors do
-		local emitter = Instance.new("ParticleEmitter")
-		emitter.Color = ColorSequence.new(color)
-		emitter.LightEmission = 0.8
-		emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
-		emitter.Lifetime = NumberRange.new(0.6, 1.2)
-		emitter.Speed = NumberRange.new(speed * 0.5, speed)
-		emitter.SpreadAngle = Vector2.new(180, 180)
-		emitter.Acceleration = Vector3.new(0, -18, 0)
-		emitter.RotSpeed = NumberRange.new(-200, 200)
-		emitter.Rate = 0
-		emitter.Parent = anchor
-		emitter:Emit(math.max(1, math.floor(count / #colors)))
+-- The local player's root part and the ground under their feet.
+local function playerSpot(): (BasePart?, Vector3?)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return nil, nil
 	end
+	-- Feet = the bottom of the lowest body part (where the character touches the ground).
+	local lowest = root.Position.Y - root.Size.Y / 2
+	for _, part in (character :: Model):GetChildren() do
+		if part:IsA("BasePart") and part ~= root then
+			lowest = math.min(lowest, part.Position.Y - part.Size.Y / 2)
+		end
+	end
+	return root, Vector3.new(root.Position.X, lowest + 0.08, root.Position.Z)
 end
 
-local RAINBOW_COLORS = {
-	Color3.fromRGB(255, 80, 80),
-	Color3.fromRGB(255, 200, 60),
-	Color3.fromRGB(110, 230, 90),
-	Color3.fromRGB(70, 190, 255),
-	Color3.fromRGB(180, 100, 255),
-}
+-- Beam colour for the rarest thing in a box.
+local function rareBeamColor(contents: { { Key: string, Count: number } }): Color3?
+	local best: string? = nil
+	local rank = { Golden = 1, Rainbow = 2, Giant = 3 }
+	for _, entry in contents do
+		local id = Items.variant(entry.Key).Id
+		if rank[id] and (not best or rank[id] > rank[best]) then
+			best = id
+		end
+	end
+	if best == "Giant" then
+		return Color3.fromRGB(90, 255, 170)
+	elseif best == "Rainbow" then
+		return Color3.fromRGB(255, 120, 230)
+	elseif best == "Golden" then
+		return Particles.Colors.Gold
+	end
+	return nil
+end
 
 -- Animate a value from 0 to 1 over `duration`, calling `step(alpha)` each frame.
 local function animate(duration: number, step: (alpha: number) -> ())
@@ -206,6 +219,12 @@ local function boxOpen(payload: { [string]: any })
 		end
 	end)
 
+	-- Puff of dust and a burst of confetti as the box pops open.
+	local lid = cframe.Position + Vector3.new(0, size.Y / 2, 0)
+	Particles.emit("Glow", lid, 1, tape)
+	Particles.emit("Confetti", lid, 10, { tape, Particles.Colors.White })
+	Particles.dustAround(cframe.Position - Vector3.new(0, size.Y / 2, 0), size.X, 8)
+
 	-- 3) Products pop out (rare ones first), then fly towards the player.
 	local keys = {}
 	local rare = false
@@ -227,7 +246,12 @@ local function boxOpen(payload: { [string]: any })
 	local firstKey = contents[1].Key
 	floatText(top + Vector3.new(0, 3.5, 0), `{Items.icon(firstKey)} {Items.product(firstKey).Name} x{total}`, Colors.White, 1.6)
 	if rare then
-		burst(top, RAINBOW_COLORS, 60, 22)
+		-- Loot-drop beam in the colour of the rarest item.
+		local beamColor = rareBeamColor(contents)
+		if beamColor then
+			Particles.beam(cframe.Position - Vector3.new(0, size.Y / 2, 0), beamColor)
+		end
+		Particles.emit("Sparkle", top, 24, Particles.Rainbow)
 		SoundPlayer.play("Rare", 1, top)
 	end
 
@@ -316,6 +340,7 @@ handlers.Sale = function(payload)
 	local amount = if type(payload.Amount) == "number" then payload.Amount else 0
 	local mine = payload.OwnerId == player.UserId
 	coinBurst(position, if payload.Rare then 8 else 4)
+	Particles.emit("Sparkle", position, 3, Particles.Colors.Gold)
 	if mine then
 		HUD.flyCoins(position, amount)
 	end
@@ -324,7 +349,8 @@ handlers.Sale = function(payload)
 	end
 	if payload.Rare then
 		floatText(position, "+" .. Format.money(amount), Colors.Gold, 2.2, true)
-		burst(position, { Colors.Gold, Colors.White }, 30, 14)
+		Particles.pop(position, Particles.Colors.Gold, 12)
+		Particles.emit("Confetti", position, 14, { Particles.Colors.Gold, Particles.Colors.White })
 		SoundPlayer.play("Rare", 1, position)
 	else
 		floatText(position, "+" .. Format.money(amount), Colors.Green, if mine then 1.4 else 1.1)
@@ -340,6 +366,12 @@ handlers.Stocked = function(payload)
 	if payload.Full then
 		floatText(position, "FULL! ✔", Colors.Green, 1.3)
 		SoundPlayer.play("Upgrade", 1.5, position)
+		-- The whole shelf glows green for a moment.
+		local shelf = payload.Shelf
+		if typeof(shelf) == "Instance" then
+			Particles.flash(shelf, Particles.Colors.Green)
+		end
+		Particles.emit("Sparkle", position, 12, { Particles.Colors.Green, Particles.Colors.White })
 	else
 		floatText(position, `+{payload.Count} 📦`, Colors.Blue, 1.2)
 	end
@@ -347,20 +379,30 @@ end
 
 handlers.Pickup = function()
 	SoundPlayer.play("Pickup")
+	local root, feet = playerSpot()
+	if root and feet then
+		Particles.ring(feet, Particles.Colors.White)
+		Particles.emit("Sparkle", root.Position + root.CFrame.LookVector * 1.8 + Vector3.new(0, 0.5, 0), 6, Particles.Colors.White)
+	end
 end
 
 handlers.BoxLand = function(payload)
 	local position = payload.Position
 	if typeof(position) == "Vector3" and near(position, 120) then
 		SoundPlayer.play("Thud", rng:NextNumber(0.9, 1.1), position, 0.05)
-		burst(position - Vector3.new(0, 1, 0), { Color3.fromRGB(230, 220, 200) }, 8, 6)
+		local ground = position - Vector3.new(0, 1, 0)
+		Particles.dustAround(ground, BoxVisual.Size.X, 12)
+		Particles.ring(ground, Particles.Colors.White)
 	end
 end
 
+-- Level-up: a ring at your feet and a column of rising stars.
 handlers.Upgrade = function()
-	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then
-		burst(root.Position, { Colors.Green, Colors.Yellow, Colors.White }, 45, 18)
+	local root, feet = playerSpot()
+	if root and feet then
+		Particles.ring(feet, Particles.Colors.Green)
+		Particles.emit("Rise", feet, 22, { Particles.Colors.Green, Particles.Colors.Gold, Particles.Colors.White })
+		Particles.cameraPunch(2)
 	end
 end
 
@@ -369,11 +411,20 @@ handlers.StoreExpanded = function(payload)
 	if typeof(position) ~= "Vector3" or not near(position, 250) then
 		return
 	end
-	burst(position, RAINBOW_COLORS, 150, 40)
+	-- Fireworks from the new sign.
 	SoundPlayer.play("Upgrade", 1, position)
-	task.delay(0.15, function()
-		SoundPlayer.play("Rare", 0.8, position)
-	end)
+	for index = 1, 3 do
+		task.delay((index - 1) * 0.35, function()
+			SoundPlayer.play("Whoosh", 0.8 + index * 0.1, position)
+			Particles.firework(position + Vector3.new((index - 2) * 6, 2, 0), Particles.Rainbow[(index * 2) % #Particles.Rainbow + 1], function()
+				SoundPlayer.play("Pop", 0.9 + index * 0.1, position)
+			end)
+		end)
+	end
+	Particles.emit("Confetti", position, 30, Particles.Rainbow)
+	if payload.OwnerId == player.UserId then
+		Particles.cameraPunch(4)
+	end
 end
 
 handlers.Sad = function(payload)
@@ -389,10 +440,21 @@ end
 
 handlers.Purchase = function()
 	SoundPlayer.play("Purchase")
-	Effects.confetti(70)
-	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-	if root and root:IsA("BasePart") then
-		burst(root.Position, { Colors.Gold, Colors.White, Colors.Green }, 60, 22)
+	Effects.confetti(50)
+	local root, feet = playerSpot()
+	if root and feet then
+		Particles.emit("Glow", root.Position, 1, Particles.Colors.Gold)
+		Particles.ring(feet, Particles.Colors.Gold)
+		Particles.emit("Rise", feet, 28, { Particles.Colors.Gold, Particles.Colors.White, Particles.Colors.Green })
+		Particles.cameraPunch(3)
+	end
+end
+
+-- Tutorial step done: a little column of stars (the card handles the rest).
+handlers.TutorialStep = function()
+	local _, feet = playerSpot()
+	if feet then
+		Particles.emit("Rise", feet, 14, { Particles.Colors.Gold, Particles.Colors.Green })
 	end
 end
 
@@ -408,6 +470,8 @@ local function animateStock(item: Instance)
 	end
 	local fill = item:GetAttribute("Fill")
 	SoundPlayer.play("Stock", 0.85 + (if type(fill) == "number" then fill else 0.5) * 0.9, pivot.Position, 0.025)
+	-- A single twinkle as each product lands.
+	Particles.emit("Sparkle", pivot.Position + Vector3.new(0, 0.6, 0), 1, Particles.Colors.White)
 	task.spawn(function()
 		item:ScaleTo(0.05)
 		animate(0.22, function(alpha)
@@ -460,6 +524,7 @@ end
 
 function Effects.init(gui: ScreenGui)
 	screen = gui
+	Particles.init()
 	Remotes.event("Effect").OnClientEvent:Connect(function(name: string, payload: { [string]: any })
 		if type(payload) ~= "table" then
 			return

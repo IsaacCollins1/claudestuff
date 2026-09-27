@@ -67,6 +67,30 @@ Customers, workers and the cashier are standard Roblox R15 characters. Roblox bu
 - If Roblox can't create characters (for example, character assets fail to load), the game prints one warning and uses simple Part-built characters instead.
 - The looks are in `NpcBuilder.luau`. You could add clothing or accessory IDs to `describe()` for more variety.
 
+### Particles and effects
+
+The loop's key moments each get a short, restrained effect:
+
+| Moment | Effect |
+|---|---|
+| A box lands on the bay | Dust rolls out from its corners, with a ring on the ground |
+| You pick up a box | Ring at your feet and a few sparkles |
+| A box pops open | Flash and a burst of confetti in the tape's colour. Rare boxes get a loot beam in the colour of the rarest item |
+| Each product lands on a shelf | A single twinkle |
+| A shelf fills up | The shelf glows green |
+| A sale | Coins with a few gold sparkles; rare sales add a gold flash and confetti |
+| Upgrade, tutorial step or Robux purchase | Ring at your feet, a column of rising stars and a small camera "punch" |
+| The shop expands | Three fireworks over the new sign |
+| The delivery van drives | Gentle exhaust puffs |
+
+How it stays light:
+
+- `Controllers/Particles.luau` pools everything: one invisible part per effect and one emitter per colour, moved and re-used for every burst.
+- Each effect has a particles-per-second budget and is skipped far from the camera.
+- Particle counts are halved on low graphics settings.
+- The textures are particle images built into every Roblox client, so nothing needs uploading.
+- In the play-test, a busy shop averages about 5 particles per second.
+
 ### Low-poly style
 
 Everything is built from ordinary Parts in a low-poly style, so nothing needs uploading. `src/shared/LowPoly.luau` provides the shapes:
@@ -153,7 +177,8 @@ src/server/   → ServerScriptService.Server
 src/client/   → StarterPlayerScripts.Client
   Main.client     creates the UI and starts the controllers
   Controllers/    HUD, UpgradesPanel, StockPanel, ShopPanel, LeaderboardPanel,
-                  TutorialUI, Notifications, Effects, Guide (hints + outlines),
+                  TutorialUI, Notifications, Effects + Particles (pooled effects),
+                  Guide (hints + outlines),
                   Prompts (owner-only prompts), UIKit + Window (chunky UI kit)
 tests/            headless play-test (see below)
 ```
